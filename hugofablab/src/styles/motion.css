@@ -1,0 +1,99 @@
+/* ───────────────────────── Motion ─────────────────────────
+   Système d'animation au défilement.
+   Principes :
+   1. Sans JavaScript, tout est visible : les états « masqués » n'existent que sous `html.js`.
+   2. `prefers-reduced-motion` neutralise tout (voir base.css + règles finales).
+   3. Les effets liés au défilement utilisent `animation-timeline` (natif, hors thread principal)
+      quand le navigateur le permet ; sinon ils se dégradent proprement. */
+
+/* ── Révélation à l'entrée dans le viewport ── */
+.js [data-reveal] {
+  opacity: 0;
+  transform: var(--reveal-from, translateY(26px));
+  filter: var(--reveal-filter, none);
+  transition:
+    opacity 0.75s var(--ease-soft),
+    transform 0.9s var(--ease-out-expo),
+    filter 0.9s var(--ease-soft),
+    clip-path 1.1s var(--ease-out-expo);
+  transition-delay: calc(var(--i, 0) * 85ms + var(--delay, 0ms));
+  will-change: opacity, transform;
+}
+.js [data-reveal].in { opacity: 1; transform: none; filter: none; }
+[data-reveal="down"]  { --reveal-from: translateY(-22px); }
+[data-reveal="left"]  { --reveal-from: translateX(34px); }
+[data-reveal="right"] { --reveal-from: translateX(-34px); }
+[data-reveal="scale"] { --reveal-from: scale(0.93); }
+[data-reveal="blur"]  { --reveal-from: translateY(14px); --reveal-filter: blur(12px); }
+
+/* Rideau et trait : l'hôte observé reste intact (sinon sa boîte d'intersection serait nulle) ;
+   le masquage est porté par le calque interne .reveal-layer. */
+.js [data-reveal="clip"], .js [data-reveal="line"] { opacity: 1; transform: none; filter: none; transition: none; }
+.reveal-layer { height: 100%; }
+[data-reveal="line"] > .reveal-layer { background: currentColor; }
+.js [data-reveal="clip"] > .reveal-layer { clip-path: inset(100% 0 0 0 round var(--radius-card)); transition: clip-path 1.1s var(--ease-out-expo); transition-delay: calc(var(--i, 0) * 85ms + var(--delay, 0ms)); }
+.js [data-reveal="clip"].in > .reveal-layer { clip-path: inset(0 0 0 0 round var(--radius-card)); }
+.js [data-reveal="line"] > .reveal-layer { transform: scaleX(0); transform-origin: left center; transition: transform 1.1s var(--ease-out-expo); transition-delay: calc(var(--i, 0) * 85ms + var(--delay, 0ms)); }
+.js [data-reveal="line"].in > .reveal-layer { transform: scaleX(1); }
+/* Groupe : invisible lui-même, déclenche uniquement ses enfants */
+.js [data-reveal="group"] { opacity: 1; transform: none; }
+
+/* Lignes de texte masquées (glissent depuis le bas de leur gouttière) */
+.mask-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mask-line > span { display: block; }
+.js [data-reveal] .mask-line > span { transform: translateY(112%); transition: transform 1s var(--ease-out-expo); transition-delay: calc(var(--i, 0) * 85ms + var(--delay, 0ms) + var(--line, 0) * 110ms); }
+.js [data-reveal].in .mask-line > span { transform: none; }
+
+/* ── Cascade au montage (espaces connectés) ── */
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up 0.55s var(--ease-soft) both; }
+.fade-delay { animation-delay: 0.12s; }
+.stagger > * { animation: fade-up 0.5s var(--ease-soft) both; }
+.stagger > :nth-child(1) { animation-delay: 40ms; }  .stagger > :nth-child(2) { animation-delay: 90ms; }
+.stagger > :nth-child(3) { animation-delay: 140ms; } .stagger > :nth-child(4) { animation-delay: 190ms; }
+.stagger > :nth-child(5) { animation-delay: 240ms; } .stagger > :nth-child(6) { animation-delay: 290ms; }
+.stagger > :nth-child(n + 7) { animation-delay: 340ms; }
+
+@keyframes dialog-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.dialog-in { animation: dialog-in 0.2s ease-out both; }
+
+/* ── Barre de progression de lecture (CSS scroll-driven, repli JS dans le composant) ── */
+.scroll-progress { position: fixed; inset: 0 0 auto 0; z-index: 60; height: 3px; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg, var(--color-togo-green), var(--color-lime) 60%, var(--color-togo-yellow)); pointer-events: none; }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@supports (animation-timeline: scroll()) {
+  .scroll-progress { animation: grow-x linear both; animation-timeline: scroll(root); }
+}
+
+/* ── Parallaxe douce des images (liée à la position dans le viewport) ── */
+@keyframes parallax-y { from { transform: translateY(-9%) scale(1.14); } to { transform: translateY(9%) scale(1.14); } }
+@supports (animation-timeline: view()) {
+  .parallax { overflow: hidden; }
+  .parallax > img { animation: parallax-y linear both; animation-timeline: view(); animation-range: entry 0% exit 100%; }
+}
+
+/* ── Indice de défilement : disparaît dès que l'on commence à défiler ── */
+@keyframes fade-out { to { opacity: 0; transform: translateY(8px); } }
+@keyframes cue-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+.scroll-cue { animation: cue-bounce 1.8s ease-in-out infinite; }
+@supports (animation-timeline: scroll()) {
+  .scroll-cue-wrap { animation: fade-out linear both; animation-timeline: scroll(root); animation-range: 0 180px; }
+}
+
+/* ── Bandeau défilant ── */
+.marquee { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.marquee-inner { display: flex; width: max-content; animation: marquee 38s linear infinite; }
+.marquee:hover .marquee-inner { animation-play-state: paused; }
+.marquee-track { display: flex; flex-shrink: 0; gap: 28px; padding-inline-end: 28px; list-style: none; margin: 0; }
+.marquee-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-togo-yellow); flex-shrink: 0; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* ── Titre de section collant qui s'estompe (sections longues) ── */
+.sticky-label { position: sticky; top: 110px; }
+
+/* ── Mouvement réduit : tout est instantané et visible ── */
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal], .js [data-reveal] > .reveal-layer { opacity: 1 !important; transform: none !important; filter: none !important; clip-path: none !important; transition: none !important; }
+  .js [data-reveal] .mask-line > span { transform: none !important; transition: none !important; }
+  .marquee-inner, .scroll-cue, .parallax > img, .scroll-progress { animation: none !important; }
+  .scroll-progress { display: none; }
+}

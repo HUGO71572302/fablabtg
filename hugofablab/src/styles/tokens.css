@@ -1,0 +1,63 @@
+/* ───────────────────────── Design tokens ─────────────────────────
+   Palette : vert forêt (action et identité), ivoire chaud (fond), jaune safran (mise en avant),
+   rouge brique (alerte), bleu d'information. Chaque couleur de texte garde un contraste ≥ 4.5 : 1.
+   Tout le reste de l'interface ne référence que ces variables. */
+
+@theme {
+  --color-togo-green: #1f5a40;
+  --color-togo-green-light: #2d6b4f;
+  --color-togo-yellow: #f0b429;
+  --color-togo-red: #b8382c;
+  --color-forest: #14372a;
+  --color-lime: #cfe6a8;
+  --color-sand: #f1ead6;
+  --color-info: #2b6a8e;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", "DM Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --radius-card: 20px;
+  --radius-hero: 28px;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.2, 0.65, 0.3, 1);
+}
+
+:root {
+  --background: #f7f6f1;
+  --foreground: #17251d;
+  --card: #ffffff;
+  --card-foreground: #17251d;
+  --muted: #ecebe3;
+  --muted-foreground: #4d5a51;
+  --border: #d9dccd;
+  --ring: #2d6b4f;
+  --primary: #1f5a40;
+  --primary-foreground: #ffffff;
+  /* Échelle verticale des sections publiques */
+  --section-y: clamp(56px, 8vw, 96px);
+}
+
+.dark {
+  --background: #0e1913;
+  --foreground: #eef4e8;
+  --card: #15231b;
+  --card-foreground: #eef4e8;
+  --muted: #203128;
+  --muted-foreground: #b9c6b6;
+  --border: #2e4236;
+  --ring: #a5d18a;
+  --primary: #a9d18e;
+  --primary-foreground: #14321f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+}

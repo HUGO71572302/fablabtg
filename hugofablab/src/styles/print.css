@@ -1,0 +1,146 @@
+/* ───────────────────────── Documents imprimables ─────────────────────────
+   Les fiches ont leur propre langage visuel : compactes sur A4, très lisibles,
+   sans dépendre de l'échelle typographique du site écran.
+   Classes principales : print-header · print-section · print-table · print-metrics.
+*/
+
+.print-screen {
+  min-height: 100vh;
+  background: #eef0e9;
+  padding: 0 0 56px;
+  color: #17251d;
+}
+
+.print-sheet {
+  --print-ink: #17251d;
+  --print-muted: #536158;
+  --print-line: #d7ddd4;
+  --print-soft: #f4f6f1;
+  --print-green: #1f5a40;
+  width: min(100% - 32px, 210mm);
+  min-height: 270mm;
+  margin: 24px auto 0;
+  padding: 15mm 15mm 14mm;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 16px 50px -24px #10201855;
+  color: var(--print-ink);
+  font-family: "DM Sans", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.print-sheet * { box-sizing: border-box; }
+.print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 2px solid var(--print-ink);
+  padding-bottom: 14px;
+}
+.print-brand { display: flex; min-width: 0; align-items: center; gap: 13px; }
+.print-brand-logo {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--print-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.print-brand-logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.print-brand-name { margin: 0; font-family: "Manrope", Arial, sans-serif; font-size: 17px; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
+.print-brand-meta { margin: 3px 0 0; color: var(--print-muted); font-size: 11px; line-height: 1.45; }
+.print-document { min-width: 160px; text-align: right; }
+.print-kicker { margin: 0; color: var(--print-muted); font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.print-title { margin: 3px 0 0; font-family: "Manrope", Arial, sans-serif; font-size: 20px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; }
+.print-reference { margin: 5px 0 0; color: var(--print-green); font-family: ui-monospace, monospace; font-size: 12px; font-weight: 800; }
+.print-subtitle { margin: 4px 0 0; color: var(--print-muted); font-size: 10px; line-height: 1.4; }
+
+.print-section { margin-top: 24px; }
+.print-section-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  color: var(--print-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.print-section-title::before { width: 16px; height: 3px; border-radius: 3px; background: var(--print-green); content: ""; }
+.print-note { margin: 5px 0 0; color: var(--print-muted); font-size: 10px; line-height: 1.45; }
+.print-identity { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; }
+.print-identity-main { min-width: 260px; flex: 1; }
+.print-person-name { margin: 0; font-family: "Manrope", Arial, sans-serif; font-size: 24px; font-weight: 800; line-height: 1.1; letter-spacing: -0.035em; }
+.print-contact { min-width: 170px; text-align: right; }
+.print-contact p { margin: 4px 0; }
+.print-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-top: 14px; }
+.print-kv { border-bottom: 1px solid var(--print-line); padding: 0 0 7px; }
+.print-kv dt { color: var(--print-muted); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.print-kv dd { margin: 3px 0 0; font-size: 13px; font-weight: 700; }
+.print-metrics { display: grid; grid-template-columns: repeat(var(--metric-columns, 4), minmax(0, 1fr)); gap: 8px; margin-top: 18px; text-align: center; }
+.print-metric { border: 1px solid var(--print-line); border-radius: 10px; padding: 11px 6px; }
+.print-metric.is-strong { border: 2px solid var(--print-ink); }
+.print-metric-value { font-family: "Manrope", Arial, sans-serif; font-size: 25px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.print-metric-label { margin-top: 5px; color: var(--print-muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+
+.print-table-wrap { overflow-x: auto; }
+.print-table { width: 100%; border-collapse: collapse; font-size: 11px; line-height: 1.38; }
+.print-table thead { display: table-header-group; }
+.print-table tr { break-inside: avoid; page-break-inside: avoid; }
+.print-table th { padding: 7px 5px; border-bottom: 1.5px solid var(--print-ink); color: var(--print-muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.print-table td { padding: 8px 5px; border-bottom: 1px solid var(--print-line); vertical-align: top; }
+.print-table td:first-child, .print-table th:first-child { padding-left: 0; }
+.print-table td:last-child, .print-table th:last-child { padding-right: 0; }
+.print-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.print-table .muted { color: var(--print-muted); font-size: 10px; }
+.print-table .strong { font-weight: 800; }
+.print-table .total-row td { border-top: 1.5px solid var(--print-ink); border-bottom: 0; font-weight: 800; }
+.print-footnote { margin: 22px 0 0; color: var(--print-muted); font-size: 10px; line-height: 1.5; }
+.print-sign { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; margin-top: 46px; }
+.print-sign div { min-height: 62px; border-top: 1.5px solid var(--print-ink); padding-top: 7px; font-size: 11px; font-weight: 700; }
+.print-avoid, .print-section { break-inside: avoid; page-break-inside: avoid; }
+
+@media (max-width: 600px) {
+  .print-sheet { width: calc(100% - 20px); padding: 24px 20px; border-radius: 8px; }
+  .print-header { flex-direction: column; }
+  .print-document, .print-contact { text-align: left; }
+  .print-kv-grid { grid-template-columns: 1fr; }
+  .print-metrics { --metric-columns: 2; }
+  .print-sign { gap: 20px; }
+}
+
+@media print {
+  @page { size: A4 portrait; margin: 11mm 10mm 13mm; }
+  html, body { margin: 0 !important; background: #fff !important; color: #111 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .no-print, [data-sonner-toaster], .scroll-progress { display: none !important; }
+  .print-screen { min-height: 0; padding: 0; background: #fff; }
+  .print-sheet { width: auto; min-height: 0; margin: 0; padding: 0; border-radius: 0; box-shadow: none; font-size: 10pt; }
+  .print-header { padding-bottom: 10px; }
+  .print-brand-logo { width: 46px; height: 46px; }
+  .print-brand-name { font-size: 14pt; }
+  .print-title { font-size: 16pt; }
+  .print-section { margin-top: 16px; }
+  .print-section-title { font-size: 8.5pt; margin-bottom: 6px; }
+  .print-kv-grid { gap: 5px 18px; margin-top: 9px; }
+  .print-kv { padding-bottom: 4px; }
+  .print-kv dt { font-size: 7.5pt; }
+  .print-kv dd { font-size: 10pt; }
+  .print-metrics { margin-top: 12px; gap: 6px; }
+  .print-metric { border-radius: 6px; padding: 7px 4px; }
+  .print-metric-value { font-size: 18pt; }
+  .print-metric-label { margin-top: 3px; font-size: 6.8pt; }
+  .print-table { font-size: 8.4pt; }
+  .print-table th { padding: 5px 3px; font-size: 6.8pt; }
+  .print-table td { padding: 5px 3px; }
+  .print-table .muted { font-size: 7.5pt; }
+  .print-footnote { margin-top: 14px; font-size: 8pt; }
+  .print-sign { gap: 36px; margin-top: 30px; }
+  .print-sign div { min-height: 48px; font-size: 9pt; }
+  a { color: inherit; text-decoration: none; }
+}
