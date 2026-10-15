@@ -16,7 +16,7 @@ export const BILLING_PLANS: Record<PlanId, {
   essentiel: {
     id: "essentiel",
     name: "Essentiel",
-    monthlyPrice: 550,
+    monthlyPrice: 5500,
     accent: "Le nécessaire pour faire vivre un atelier.",
     tagline: "Pour un lab qui démarre",
     description: "Réservations, élèves, machines, projets et suivi de base.",
