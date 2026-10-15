@@ -2,7 +2,7 @@
 export type PlanId = "essentiel" | "plus" | "reseau";
 export type SubscriptionPhase = "trial" | "active" | "pending" | "expired" | "suspended";
 
-export const TRIAL_DURATION_MINUTES = 60;
+export const TRIAL_DURATION_MINUTES = 720;
 
 export const BILLING_PLANS: Record<PlanId, {
   id: PlanId;
