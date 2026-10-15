@@ -16,7 +16,7 @@ export const BILLING_PLANS: Record<PlanId, {
   essentiel: {
     id: "essentiel",
     name: "Essentiel",
-    monthlyPrice: 3500,
+    monthlyPrice: 5500,
     accent: "Le nécessaire pour faire vivre un atelier.",
     tagline: "Pour un lab qui démarre",
     description: "Réservations, élèves, machines, projets et suivi de base.",
@@ -25,7 +25,7 @@ export const BILLING_PLANS: Record<PlanId, {
   plus: {
     id: "plus",
     name: "Plus",
-    monthlyPrice: 5500,
+    monthlyPrice: 8500,
     accent: "La formule recommandée pour l’école.",
     tagline: "Pour un atelier qui grandit",
     description: "Tout Essentiel, avec un suivi pédagogique et stock avancé pour toute l’école.",
@@ -34,7 +34,7 @@ export const BILLING_PLANS: Record<PlanId, {
   reseau: {
     id: "reseau",
     name: "Réseau",
-    monthlyPrice: 10500,
+    monthlyPrice: 12500,
     accent: "Pour les établissements qui avancent ensemble.",
     tagline: "Pour plusieurs ateliers",
     description: "Une formule élargie pour un réseau d’ateliers ou plusieurs établissements.",
