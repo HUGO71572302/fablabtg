@@ -14,7 +14,7 @@ function remainingLabel(seconds: number) {
   return `${String(m).padStart(2, "0")} min ${String(s).padStart(2, "0")} s`;
 }
 
-/** Carte de statut de l'essai / abonnement, avec minuteur réel pour les 10 minutes offertes. */
+/** Carte de statut de l'essai / abonnement, avec minuteur réel pour les 30 jours offertes. */
 export function SubscriptionStatus({ phase, plan, endsAt }: { phase: SubscriptionPhase; plan: PlanId; endsAt: string }) {
   const [now, setNow] = useState(() => Date.now());
   const end = new Date(endsAt).getTime();

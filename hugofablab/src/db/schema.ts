@@ -82,7 +82,7 @@ export const users = pgTable("users", {
 });
 
 /**
- * Abonnement du lab : essai gratuit de 10 minutes à la création, puis accès payant.
+ * Abonnement du lab : essai gratuit de 30 jours à la création, puis accès payant.
  * `activeUntil` est défini par validation manuelle du paiement Mobile Money.
  */
 export const labSubscriptions = pgTable(
