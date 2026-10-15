@@ -1,17 +1,27 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { startTransition, useActionState, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock3, Expand, ListPlus, Loader2, Lock, DoorOpen, Wrench, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Expand, ListPlus, Loader2, Lock, DoorOpen, Wrench, XCircle, WifiOff } from "lucide-react";
 import { openImageViewer } from "@/components/system/image-viewer";
 import { toast } from "sonner";
 import { checkSlotAction, createReservationAction, joinWaitlistAction, type ReserveState } from "@/actions/reservations";
+import { listPendingReservations, removePendingReservation, savePendingReservation, type PendingReservation } from "@/lib/offline-reservations";
 import { ResourceIcon } from "@/components/ui/resource-icon";
 import { Button, Input, Label, LevelBadge, Select, Textarea, cn } from "@/components/ui";
 import type { Level, ResourceStatus } from "@/db/schema";
 import { durationLabel, minutesToTime, timeToMinutes } from "@/lib/dates";
 import { LEVEL_LABEL, RESOURCE_STATUS_LABEL } from "@/lib/labels";
 import type { SlotCheck } from "@/lib/reservations";
+
+const subscribeOnline = (callback: () => void) => {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+};
 
 export type FormResource = {
   id: number;
@@ -35,14 +45,17 @@ export function ReservationForm({
   defaultResourceId,
   today,
   isAdmin,
+  userId,
 }: {
   resources: FormResource[];
   settings: { openTime: string; closeTime: string; slotStepMinutes: number; maxDurationMinutes: number; openDays: number[] };
   defaultResourceId?: number;
   today: string;
   isAdmin: boolean;
+  userId: number;
 }) {
   const router = useRouter();
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const preselected = resources.find((r) => r.id === defaultResourceId);
   const [type, setType] = useState<"machine" | "salle">(preselected?.type ?? "machine");
   const list = useMemo(() => resources.filter((r) => r.type === type), [resources, type]);
@@ -55,6 +68,11 @@ export function ReservationForm({
   const [checking, startChecking] = useTransition();
   const [state, formAction, pending] = useActionState(createReservationAction, null);
   const [wlState, wlAction, wlPending] = useActionState(joinWaitlistAction, null);
+  const [pendingReservations, setPendingReservations] = useState<PendingReservation[]>([]);
+  const [offlineError, setOfflineError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [failedReservationId, setFailedReservationId] = useState<string | null>(null);
+  const syncing = useRef(false);
 
   const resource = resources.find((r) => r.id === resourceId) ?? null;
   const openMin = timeToMinutes(settings.openTime);
@@ -82,7 +100,7 @@ export function ReservationForm({
   }, [maxDur, duration, durationOptions, step]);
 
   useEffect(() => {
-    if (!resourceId || !date || !start || !duration) return;
+    if (!online || !resourceId || !date || !start || !duration) return;
     const t = setTimeout(() => {
       startChecking(async () => {
         const res = await checkSlotAction({ resourceId, date, start, duration });
@@ -90,7 +108,66 @@ export function ReservationForm({
       });
     }, 250);
     return () => clearTimeout(t);
-  }, [resourceId, date, start, duration]);
+  }, [online, resourceId, date, start, duration]);
+
+  const syncPendingReservations = useCallback(async () => {
+    if (!online || syncing.current) return;
+    syncing.current = true;
+    setSyncError(null);
+    try {
+      const queued = await listPendingReservations(userId);
+      setPendingReservations(queued);
+      let failedId: string | null = null;
+      for (const reservation of queued) {
+        const fd = new FormData();
+        fd.set("resourceId", String(reservation.resourceId));
+        fd.set("date", reservation.date);
+        fd.set("start", reservation.start);
+        fd.set("duration", String(reservation.duration));
+        fd.set("purpose", reservation.purpose);
+        fd.set("clientRequestId", reservation.id);
+        const result = await createReservationAction(null, fd);
+        if (result?.error) {
+          failedId = reservation.id;
+          setSyncError(`Demande du ${reservation.date} à ${reservation.start} non synchronisée : ${result.error}`);
+          setFailedReservationId(failedId);
+          break;
+        }
+        await removePendingReservation(reservation.id);
+      }
+      if (!failedId) setFailedReservationId(null);
+      setPendingReservations(await listPendingReservations(userId));
+      router.refresh();
+    } catch (error) {
+      console.error("Échec de la synchronisation des réservations hors ligne.", error);
+      setSyncError("La synchronisation a échoué. La demande reste conservée sur cet appareil ; réessayez quand la connexion sera stable.");
+    } finally {
+      syncing.current = false;
+    }
+  }, [online, router, userId]);
+
+  useEffect(() => {
+    let active = true;
+    listPendingReservations(userId)
+      .then((queued) => {
+        if (active) {
+          setPendingReservations(queued);
+          if (navigator.onLine) void syncPendingReservations();
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Impossible de lire les réservations conservées hors ligne.", error);
+        if (active) {
+          setOfflineError("Impossible de lire les demandes conservées sur cet appareil.");
+        }
+      });
+    const onOnline = () => void syncPendingReservations();
+    window.addEventListener("online", onOnline);
+    return () => {
+      active = false;
+      window.removeEventListener("online", onOnline);
+    };
+  }, [syncPendingReservations, userId]);
 
   useEffect(() => {
     if (state?.success) {
@@ -111,13 +188,43 @@ export function ReservationForm({
   const showFull = Boolean(check?.full || state?.full);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form
+      action={formAction}
+      className="space-y-5"
+      onSubmit={(event) => {
+        if (online) return;
+        event.preventDefault();
+        const id = crypto.randomUUID();
+        const reservation: PendingReservation = {
+          id,
+          userId,
+          resourceId,
+          date,
+          start,
+          duration,
+          purpose: purpose.trim(),
+          createdAt: Date.now(),
+        };
+        void savePendingReservation(reservation)
+          .then(async () => {
+            setOfflineError(null);
+            setPendingReservations(await listPendingReservations(userId));
+            if (navigator.onLine) void syncPendingReservations();
+            toast.success("Demande conservée sur cet appareil", {
+              description: "Elle sera vérifiée et envoyée au FabManager dès le retour d’Internet. Le créneau n’est pas encore réservé.",
+            });
+          })
+          .catch((error: unknown) => {
+            console.error("Impossible de conserver la réservation hors ligne.", error);
+            setOfflineError("La demande n’a pas pu être conservée sur cet appareil. Libérez de l’espace puis réessayez.");
+          });
+      }}
+    >
       <input type="hidden" name="resourceId" value={resourceId} />
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="start" value={start} />
       <input type="hidden" name="duration" value={duration} />
       <input type="hidden" name="purpose" value={purpose} />
-
       {/* Type */}
       <div>
         <Label>Que souhaitez-vous réserver ?</Label>
@@ -232,7 +339,9 @@ export function ReservationForm({
                 : "border-togo-red/40 bg-togo-red/10 text-togo-red dark:text-red-300",
         )}
       >
-        {checking || !check ? (
+        {!online ? (
+          <span>Hors connexion : la disponibilité sera vérifiée à la synchronisation.</span>
+        ) : checking || !check ? (
           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
         ) : check.ok ? (
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -261,12 +370,54 @@ export function ReservationForm({
 
       {state?.error && !state.full && <p className="rounded-xl bg-togo-red/10 px-3 py-2 text-base text-togo-red">{state.error}</p>}
       {wlState?.error && <p className="rounded-xl bg-togo-red/10 px-3 py-2 text-base text-togo-red">{wlState.error}</p>}
+      {offlineError && <p role="alert" className="rounded-xl bg-togo-red/10 px-3 py-2 text-base text-togo-red">{offlineError}</p>}
+      {syncError && (
+        <div role="alert" className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-3 py-3 text-base">
+          <p>{syncError}</p>
+          <Button type="button" variant="warning" size="sm" className="mt-2" onClick={() => void syncPendingReservations()}>
+            Réessayer la synchronisation
+          </Button>
+        </div>
+      )}
+      {pendingReservations.length > 0 && (
+        <div role="status" className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-3 py-3 text-base">
+          <p className="flex items-center gap-2 font-semibold"><WifiOff className="h-4 w-4" /> {pendingReservations.length} demande(s) en attente de vérification en ligne</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {pendingReservations.map((reservation) => (
+              <li key={reservation.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{resources.find((item) => item.id === reservation.resourceId)?.name ?? "Ressource"} · {reservation.date} à {reservation.start}</span>
+                {failedReservationId === reservation.id && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void removePendingReservation(reservation.id)
+                        .then(async () => {
+                          setPendingReservations(await listPendingReservations(userId));
+                          setFailedReservationId(null);
+                          setSyncError(null);
+                        })
+                        .catch((error: unknown) => {
+                          console.error("Impossible de supprimer la réservation hors ligne.", error);
+                          setOfflineError("Impossible de supprimer cette demande conservée sur l’appareil.");
+                        });
+                    }}
+                  >
+                    Supprimer
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" size="lg" className="flex-1" disabled={pending || !resourceId || (check ? !check.ok : false)}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock3 className="h-4 w-4" />} Envoyer la demande
+        <Button type="submit" size="lg" className="flex-1" disabled={pending || !resourceId || (online && (checking || !check?.ok))}>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : online ? <Clock3 className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />} {online ? "Envoyer la demande" : "Garder sur cet appareil"}
         </Button>
-        {showFull && (
+        {online && showFull && (
           <Button
             type="button"
             variant="warning"
@@ -283,12 +434,14 @@ export function ReservationForm({
               startTransition(() => wlAction(fd));
             }}
           >
-            {wlPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />} Rejoindre la liste d'attente
+            {wlPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />} Rejoindre la liste d&apos;attente
           </Button>
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        Votre demande sera validée par le FabManager. Vous recevrez une notification instantanée à la confirmation, la modification ou l'annulation.
+        {online
+          ? "Votre demande sera validée par le FabManager. Vous recevrez une notification instantanée à la confirmation, la modification ou l'annulation."
+          : "Votre demande reste locale et non confirmée jusqu’au retour d’Internet. La disponibilité sera alors vérifiée avant tout envoi au FabManager."}
       </p>
     </form>
   );

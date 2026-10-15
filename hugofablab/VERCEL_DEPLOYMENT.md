@@ -1,30 +1,41 @@
 # Déployer HUGO FABLAB sur Vercel — guide fiable
 
-Ce guide corrige la majorité des erreurs « Cette page n'a pas pu s'afficher » sur Vercel : en pratique, elles viennent presque toujours de `DATABASE_URL` absent, d'une base Supabase non migrée, ou d'une URI Google différente de celle attendue.
+Ce guide corrige la majorité des erreurs « Cette page n'a pas pu s'afficher » sur Vercel : en pratique, elles viennent presque toujours de `DATABASE_URL` absent, d'une base PostgreSQL non migrée, ou d'une URI Google différente de celle attendue. La base peut être reliée depuis Vercel Marketplace (par exemple Neon) ; Supabase n'est pas requis.
 
 > **URL de santé après déploiement** : `https://VOTRE-DOMAINE/api/health` doit retourner `{ "ok": true }`.
 
 ---
 
-## 1. Créer la base Supabase
+## 1. Relier la base PostgreSQL à Vercel
 
-1. Ouvrir [Supabase](https://supabase.com) → **New project**.
-2. Choisir une région proche (Europe ou Afrique du Sud selon disponibilité).
-3. Dans **Connect**, copier la chaîne **Transaction Pooler** (port `6543`). Elle ressemble à :
+1. Dans le tableau de bord Vercel, ouvrir **Storage** ou **Integrations** et sélectionner la base PostgreSQL reliée au projet (par exemple Neon).
+2. Vérifier que la variable `DATABASE_URL` de cette base est disponible dans l'environnement **Production** du projet Vercel.
+3. L'application utilise PostgreSQL et SSL pour les bases distantes. Utiliser l'endpoint de connexion/pooler recommandé par le fournisseur relié à Vercel.
 
 ```text
 postgresql://postgres.PROJECT_REF:VOTRE_MOT_DE_PASSE@aws-0-REGION.pooler.supabase.com:6543/postgres
 ```
 
-4. Sur votre ordinateur, à la racine du projet, appliquer le schéma :
+4. Depuis le dossier `hugofablab`, récupérer les variables Vercel de Production dans `.env.local`, puis appliquer le schéma :
 
 ```bash
-DATABASE_URL='VOTRE_URL_SUPABASE' DATABASE_SSL=require npx drizzle-kit push
+vercel env pull .env.local --environment=production
+npx drizzle-kit push
 ```
 
-Cette commande crée les tables des labs, comptes, réservations, stock, notes, abonnements et paiements.
+La configuration Drizzle lit `DATABASE_URL` depuis `.env.local`. Vérifiez que le dépôt Vercel lié et la base de Production sont les bons avant d'exécuter cette commande. Elle crée ou met à jour les tables des labs, comptes, réservations, stock, notes, abonnements et paiements.
 
 ### Mise à jour d'une base déjà déployée
+
+Pour activer la mise en attente locale des demandes de réservation avec protection contre les doublons lors de la synchronisation, ajoutez cette colonne et son index unique avant de déployer la nouvelle version. Dans Supabase → **SQL Editor**, exécutez :
+
+```sql
+ALTER TABLE public.reservations
+ADD COLUMN IF NOT EXISTS client_request_id text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS reservations_client_request_id_unique
+ON public.reservations (client_request_id);
+```
 
 Pour activer la mise en pause réversible d'un lab, ajoutez la colonne `active` à la base de production avant de redéployer le nouveau code. Dans Supabase → **SQL Editor**, exécutez :
 

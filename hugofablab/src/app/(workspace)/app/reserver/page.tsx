@@ -61,6 +61,7 @@ export default async function ReservePage({ searchParams }: { searchParams: Prom
             defaultResourceId={resource ? Number(resource) : undefined}
             today={dayKey(new Date())}
             isAdmin={admin}
+            userId={user.id}
           />
         </CardContent>
       </Card>

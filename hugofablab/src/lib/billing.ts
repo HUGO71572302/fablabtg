@@ -67,7 +67,7 @@ export async function listPaymentHistory() {
 
 export function paymentRecipient() {
   return {
-    tmoney: process.env.MOBILE_MONEY_TMOONEY_NUMBER?.trim() || "96 93 38 93",
+    tmoney: process.env.MOBILE_MONEY_TMOONEY_NUMBER?.trim() || "71 57 23 02",
     flooz: process.env.MOBILE_MONEY_FLOOZ_NUMBER?.trim() || "96 93 38 93",
     name: process.env.MOBILE_MONEY_RECIPIENT_NAME?.trim() || "HUGO FABLAB",
   };

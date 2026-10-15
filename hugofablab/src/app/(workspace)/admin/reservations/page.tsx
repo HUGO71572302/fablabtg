@@ -60,7 +60,7 @@ export default async function AdminReservationsPage({
       <p className="mb-3 text-base text-muted-foreground">{list.length} réservation(s)</p>
       <div className="space-y-3">
         {list.length ? (
-          list.map((r) => <AdminReservationItem key={r.id} r={r} resources={resourceOptions} settings={settings} highlight={r.id === focusId} />)
+          list.map((r) => <AdminReservationItem key={r.id} r={r} resources={resourceOptions} settings={settings} userId={admin.id} highlight={r.id === focusId} />)
         ) : (
           <EmptyState title="Aucune réservation dans cette vue" />
         )}

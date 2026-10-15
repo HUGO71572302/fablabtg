@@ -179,6 +179,7 @@ export const reservations = pgTable(
     createdBy: integer("created_by").notNull(),
     modifiedBy: integer("modified_by"),
     qrToken: text("qr_token").notNull().unique(),
+    clientRequestId: text("client_request_id").unique(),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

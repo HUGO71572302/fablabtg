@@ -2,7 +2,9 @@
   "name": "nextjs-postgresql-template",
   "private": true,
   "scripts": {
+    "predev": "node scripts/generate-brand-assets.mjs --icons-only",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-brand-assets.mjs --icons-only",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

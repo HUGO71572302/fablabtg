@@ -69,7 +69,7 @@ export default async function AdminDashboard() {
             </Link>
           </div>
           {pending.length ? (
-            pending.slice(0, 6).map((r) => <AdminReservationItem key={r.id} r={r} resources={resourceOptions} settings={settings} />)
+            pending.slice(0, 6).map((r) => <AdminReservationItem key={r.id} r={r} resources={resourceOptions} settings={settings} userId={admin.id} />)
           ) : (
             <EmptyState title="Aucune demande en attente" text="Toutes les demandes ont été traitées. 🎉" />
           )}

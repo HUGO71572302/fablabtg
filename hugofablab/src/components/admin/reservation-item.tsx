@@ -8,11 +8,13 @@ export function AdminReservationItem({
   r,
   resources,
   settings,
+  userId,
   highlight = false,
 }: {
   r: ReservationView;
   resources: AdminResourceOption[];
   settings: Pick<LabSettings, "openTime" | "closeTime" | "slotStepMinutes">;
+  userId: number;
   highlight?: boolean;
 }) {
   return (
@@ -36,6 +38,7 @@ export function AdminReservationItem({
             }}
             resources={resources}
             settings={{ openTime: settings.openTime, closeTime: settings.closeTime, slotStepMinutes: settings.slotStepMinutes }}
+            userId={userId}
           />
         }
       />

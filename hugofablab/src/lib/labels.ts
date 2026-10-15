@@ -45,7 +45,7 @@ export const CONTACT = {
   email: "hkabrame@gmail.com",
   phone: "96 93 38 93",
   phoneIntl: "+22896933893",
-  manager: "Hugo (Atissoli) KABRAME",
+  manager: "Atissoli KABRAME",
   managerTitle: "FabManager & Enseignant Référent",
   place: "Lycée Nassablé de Dapaong",
   region: "Région des Savanes, Togo",

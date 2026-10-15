@@ -1,19 +1,31 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Loader2, MapPinCheck, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { adminSetStatusAction, adminUpdateReservationAction, checkInAction } from "@/actions/reservations";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import type { ReservationStatus } from "@/db/schema";
 import { durationLabel, minutesToTime, timeToMinutes } from "@/lib/dates";
+import { listPendingCheckins, removePendingCheckin, savePendingCheckin } from "@/lib/offline-reservations";
 
 export type AdminResourceOption = { id: number; name: string; type: string; maxDurationMinutes: number };
+
+const subscribeOnline = (callback: () => void) => {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+};
 
 export function ReservationAdminActions({
   reservation,
   resources,
   settings,
+  userId,
 }: {
   reservation: {
     id: number;
@@ -28,7 +40,10 @@ export function ReservationAdminActions({
   };
   resources: AdminResourceOption[];
   settings: { openTime: string; closeTime: string; slotStepMinutes: number };
+  userId: number;
 }) {
+  const router = useRouter();
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -36,6 +51,57 @@ export function ReservationAdminActions({
   const [state, formAction, saving] = useActionState(adminUpdateReservationAction, null);
   const [resourceId, setResourceId] = useState(reservation.resourceId);
   const [duration, setDuration] = useState(reservation.duration);
+  const [checkinQueued, setCheckinQueued] = useState(false);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const syncingCheckin = useRef(false);
+
+  const syncCheckin = useCallback(async () => {
+    if (!online || syncingCheckin.current) return;
+    syncingCheckin.current = true;
+    setCheckinError(null);
+    try {
+      const queued = await listPendingCheckins(userId, reservation.id);
+      for (const checkin of queued) {
+        const result = await checkInAction(checkin.reservationId);
+        if (result.error) {
+          setCheckinError(`Le pointage reste en attente : ${result.error}`);
+          return;
+        }
+        await removePendingCheckin(checkin.id);
+      }
+      setCheckinQueued(false);
+      if (queued.length) {
+        toast.success("Présence synchronisée");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Échec de la synchronisation du pointage hors ligne.", error);
+      setCheckinError("Le pointage reste conservé sur cet appareil. Réessayez quand la connexion sera stable.");
+    } finally {
+      syncingCheckin.current = false;
+    }
+  }, [online, reservation.id, router, userId]);
+
+  useEffect(() => {
+    let active = true;
+    listPendingCheckins(userId, reservation.id)
+      .then((queued) => {
+        if (active) {
+          setCheckinQueued(queued.length > 0);
+          if (navigator.onLine && queued.length > 0) void syncCheckin();
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Impossible de lire le pointage hors ligne.", error);
+        if (active) setCheckinError("Impossible de lire le pointage conservé sur cet appareil.");
+      });
+    const onOnline = () => void syncCheckin();
+    window.addEventListener("online", onOnline);
+    return () => {
+      active = false;
+      window.removeEventListener("online", onOnline);
+    };
+  }, [reservation.id, syncCheckin, userId]);
 
   useEffect(() => {
     if (state?.success) {
@@ -87,15 +153,43 @@ export function ReservationAdminActions({
           <Pencil className="h-4 w-4" /> Modifier
         </Button>
         {reservation.status === "confirmee" && !reservation.checkedIn && (
-          <Button type="button" variant="secondary" size="sm" disabled={pending} onClick={() => run(() => checkInAction(reservation.id))}>
-            <MapPinCheck className="h-4 w-4" /> Pointer présence
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={pending || checkinQueued}
+            onClick={() => {
+              if (online) {
+                run(() => checkInAction(reservation.id));
+                return;
+              }
+              void savePendingCheckin({ id: crypto.randomUUID(), userId, reservationId: reservation.id, createdAt: Date.now() })
+                .then(() => {
+                  setCheckinQueued(true);
+                  toast.success("Pointage conservé sur cet appareil", {
+                    description: "Il sera vérifié et envoyé au retour d’Internet. La présence n’est pas encore enregistrée.",
+                  });
+                })
+                .catch((error: unknown) => {
+                  console.error("Impossible de conserver le pointage hors ligne.", error);
+                  toast.error("Le pointage n’a pas pu être conservé sur cet appareil.");
+                });
+            }}
+          >
+            <MapPinCheck className="h-4 w-4" /> {checkinQueued ? "Présence en attente de synchronisation" : online ? "Pointer présence" : "Mettre le pointage en attente"}
           </Button>
         )}
       </div>
+      {checkinError && (
+        <div role="alert" className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+          <p>{checkinError}</p>
+          {online && <Button type="button" variant="warning" size="sm" className="mt-2" onClick={() => void syncCheckin()}>Réessayer</Button>}
+        </div>
+      )}
 
       {cancelling && (
         <div className="rounded-xl border border-togo-red/40 bg-togo-red/5 p-3">
-          <Label htmlFor={`reason-${reservation.id}`}>Motif (transmis à l'utilisateur)</Label>
+          <Label htmlFor={`reason-${reservation.id}`}>Motif (transmis à l&apos;utilisateur)</Label>
           <Textarea id={`reason-${reservation.id}`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. Machine en panne, créneau réattribué…" className="min-h-[64px]" />
           <div className="mt-2 flex gap-2">
             <Button
@@ -108,7 +202,7 @@ export function ReservationAdminActions({
                 setCancelling(false);
               }}
             >
-              Confirmer l'annulation
+              Confirmer l&apos;annulation
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setCancelling(false)}>Retour</Button>
           </div>
@@ -148,8 +242,8 @@ export function ReservationAdminActions({
             </div>
           </div>
           <div className="sm:col-span-2">
-            <Label>Note pour l'utilisateur</Label>
-            <Input name="note" defaultValue={reservation.note ?? ""} placeholder="Ex. Déplacée sur l'imprimante #1, plateau plus grand." />
+            <Label>Note pour l&apos;utilisateur</Label>
+            <Input name="note" defaultValue={reservation.note ?? ""} placeholder="Ex. Déplacée sur l&apos;imprimante #1, plateau plus grand." />
           </div>
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={saving}>

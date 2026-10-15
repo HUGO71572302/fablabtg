@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { logoutAction } from "@/actions/auth";
+import { OfflineLogoutButton } from "@/components/auth/offline-logout-button";
 import { ReactivateLabButton } from "@/components/billing/reactivate-lab-button";
 import { PublicHeader } from "@/components/layout/public-header";
-import { Button, Card, CardContent } from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import { requireBillingUser } from "@/lib/auth";
 import { getLab } from "@/lib/labs";
 
@@ -39,9 +39,7 @@ export default async function DisabledLabPage() {
             ) : (
               <p className="mt-6 text-sm text-muted-foreground">Veuillez contacter le responsable de votre FabLab.</p>
             )}
-            <form action={logoutAction} className="mt-5">
-              <Button type="submit" variant="ghost">Se déconnecter</Button>
-            </form>
+            <div className="mt-5"><OfflineLogoutButton className="inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold hover:bg-muted">Se déconnecter</OfflineLogoutButton></div>
           </CardContent>
         </Card>
       </main>

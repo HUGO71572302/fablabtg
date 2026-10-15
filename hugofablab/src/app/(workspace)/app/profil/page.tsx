@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { and, eq } from "drizzle-orm";
 import { Lock, LockOpen, Mail, Phone, Printer, ShieldCheck } from "lucide-react";
-import { logoutAction } from "@/actions/auth";
 import { db } from "@/db";
 import { userSkills, users } from "@/db/schema";
 import { ResourceIcon } from "@/components/ui/resource-icon";
 import { GradeRow } from "@/components/admin/grade-form";
 import { ContactButtons } from "@/components/ui/contact";
+import { OfflineLogoutButton } from "@/components/auth/offline-logout-button";
 import { Card, CardContent, CardHeader, LevelBadge, PageHeader, buttonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { fmtDate } from "@/lib/dates";
@@ -79,9 +79,7 @@ export default async function ProfilePage() {
                 </p>
               </div>
             )}
-            <form action={logoutAction} className="mt-5">
-              <button type="submit" className={buttonClass("outline", "md", "w-full")}>Se déconnecter</button>
-            </form>
+            <OfflineLogoutButton className={buttonClass("outline", "md", "w-full")}>Se déconnecter</OfflineLogoutButton>
           </CardContent>
         </Card>
 

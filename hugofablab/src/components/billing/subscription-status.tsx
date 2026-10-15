@@ -29,7 +29,7 @@ export function SubscriptionStatus({ phase, plan, endsAt }: { phase: Subscriptio
   const tone = phase === "active" ? "bg-togo-green/10 text-togo-green dark:text-lime" : phase === "trial" ? "bg-lime text-forest" : phase === "pending" ? "bg-togo-yellow/20 text-amber-700 dark:text-togo-yellow" : "bg-togo-red/10 text-togo-red";
   const title = phase === "trial" ? `Essai gratuit · ${remainingLabel(remaining)}` : PHASE_LABEL[phase];
   const description = phase === "trial"
-    ? "Toutes les fonctionnalités sont ouvertes pendant 10 minutes à partir de la création de votre lab."
+    ? "Toutes les fonctionnalités sont ouvertes pendant 60 minutes à partir de la création de votre lab."
     : phase === "active"
       ? `${BILLING_PLANS[plan].name} actif jusqu’au ${new Date(endsAt).toLocaleDateString("fr-FR")}.`
       : phase === "pending"

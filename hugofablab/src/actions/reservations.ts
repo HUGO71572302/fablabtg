@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { reservations, resources, users, waitlist } from "@/db/schema";
 import { getCurrentUser, requireAdmin, requireUser } from "@/lib/auth";
@@ -48,6 +48,22 @@ export async function checkSlotAction(input: { resourceId: number; date: string;
 
 export async function createReservationAction(_: ReserveState, fd: FormData): Promise<ReserveState> {
   const user = await requireUser();
+  const clientRequestId = String(fd.get("clientRequestId") ?? "");
+  if (clientRequestId && !/^[0-9a-f-]{36}$/i.test(clientRequestId)) {
+    return { error: "Identifiant de demande invalide." };
+  }
+  if (clientRequestId) {
+    const [existing] = await db
+      .select({ id: reservations.id, userId: reservations.userId })
+      .from(reservations)
+      .where(eq(reservations.clientRequestId, clientRequestId))
+      .limit(1);
+    if (existing) {
+      return existing.userId === user.id
+        ? { success: "Votre demande a déjà été envoyée au responsable du lab.", reservationId: existing.id }
+        : { error: "Cette demande ne peut pas être traitée." };
+    }
+  }
   const purpose = String(fd.get("purpose") ?? "").trim() || null;
   const resource = await labResource(Number(fd.get("resourceId")), user.labId);
   if (!resource) return { error: "Ressource introuvable." };
@@ -58,8 +74,20 @@ export async function createReservationAction(_: ReserveState, fd: FormData): Pr
 
   const [r] = await db
     .insert(reservations)
-    .values({ userId: user.id, resourceId: resource.id, startAt: slot.startAt, endAt: slot.endAt, status: "en_attente", purpose, createdBy: user.id, qrToken: generateToken() })
+    .values({ userId: user.id, resourceId: resource.id, startAt: slot.startAt, endAt: slot.endAt, status: "en_attente", purpose, createdBy: user.id, qrToken: generateToken(), clientRequestId: clientRequestId || null })
+    .onConflictDoNothing({ target: reservations.clientRequestId })
     .returning();
+  if (!r && clientRequestId) {
+    const [existing] = await db
+      .select({ id: reservations.id, userId: reservations.userId })
+      .from(reservations)
+      .where(eq(reservations.clientRequestId, clientRequestId))
+      .limit(1);
+    return existing?.userId === user.id
+      ? { success: "Votre demande a déjà été envoyée au responsable du lab.", reservationId: existing.id }
+      : { error: "Cette demande ne peut pas être traitée." };
+  }
+  if (!r) return { error: "La demande n’a pas pu être enregistrée. Réessayez." };
   const label = reservationLabel(resource.name, slot.startAt);
   await notify(user.id, "en_attente", "⏳ Demande enregistrée", `${label} : en attente de validation par le responsable du lab.`, r.id);
   await notifyAdmins(user.labId, "en_attente", "⏳ Nouvelle demande de réservation", `${user.name} — ${label}${purpose ? ` (${purpose})` : ""}.`, r.id);
@@ -186,8 +214,13 @@ export async function checkInAction(id: number): Promise<SimpleResult> {
   const admin = await requireAdmin();
   const view = await adminView(id, admin.labId);
   if (!view) return { error: "Réservation introuvable." };
-  if (view.checkedInAt) return { error: "Présence déjà pointée." };
-  await db.update(reservations).set({ checkedInAt: new Date(), updatedAt: new Date() }).where(eq(reservations.id, id));
+  if (view.checkedInAt) return { success: `Présence de ${view.user.name} déjà enregistrée.` };
+  const [checkedIn] = await db
+    .update(reservations)
+    .set({ checkedInAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(reservations.id, id), isNull(reservations.checkedInAt)))
+    .returning({ id: reservations.id });
+  if (!checkedIn) return { success: `Présence de ${view.user.name} déjà enregistrée.` };
   await notify(view.user.id, "presence", "📍 Présence pointée", `Bienvenue au FabLab ! Présence enregistrée pour ${view.resource.name} (${fmtRange(view.startAt, view.endAt)}).`, id);
   revalidateAll();
   return { success: `Présence de ${view.user.name} enregistrée.` };

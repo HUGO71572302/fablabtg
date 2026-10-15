@@ -13,9 +13,11 @@ for (const n of [192, 512]) {
 }
 await sharp(Buffer.from(svg())).resize(180, 180).png().toFile("public/icons/apple-touch-icon.png");
 await sharp(Buffer.from(svg())).resize(64, 64).png().toFile("public/favicon.png");
-for (const name of ["makers-hero", "electronics-detail"]) {
-  const image = await sharp(`public/images/${name}.jpg`).rotate().resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 84, mozjpeg: true }).toBuffer();
-  await sharp(image).toFile(`public/images/${name}.jpg`);
-  console.log(`${name}: ${Math.round(image.length / 1024)} Ko`);
+if (!process.argv.includes("--icons-only")) {
+  for (const name of ["makers-hero", "electronics-detail"]) {
+    const image = await sharp(`public/images/${name}.jpg`).rotate().resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 84, mozjpeg: true }).toBuffer();
+    await sharp(image).toFile(`public/images/${name}.jpg`);
+    console.log(`${name}: ${Math.round(image.length / 1024)} Ko`);
+  }
 }
 console.log("Brand assets generated.");

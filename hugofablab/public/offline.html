@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173f30">
+    <title>Hors ligne · HUGO FABLAB</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { box-sizing: border-box; display: grid; min-height: 100vh; margin: 0; padding: 1rem; place-items: center; background: #f8f9f3; color: #173f30; }
+      main { box-sizing: border-box; width: min(100%, 28rem); padding: 2rem; border: 1px solid #d9dfd4; border-radius: 1.5rem; background: #fff; text-align: center; box-shadow: 0 12px 40px #173f3012; }
+      .brand { font-size: 1.2rem; font-weight: 800; letter-spacing: -.04em; }
+      .signal { margin: 1.5rem 0 .5rem; color: #c33a32; font-size: 2rem; }
+      h1 { margin: .5rem 0; font-size: 1.6rem; }
+      p { color: #5d685d; line-height: 1.6; }
+      button { min-height: 2.75rem; margin-top: 1rem; padding: .65rem 1.25rem; border: 0; border-radius: .75rem; background: #176344; color: white; font: inherit; font-weight: 650; cursor: pointer; }
+      #network-status { min-height: 1.5em; font-size: .9rem; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #101a14; color: #e8f0e7; }
+        main { border-color: #344339; background: #19251d; }
+        p { color: #bac8b9; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">HUGO FABLAB</div>
+      <div class="signal" aria-hidden="true">⌁</div>
+      <h1>Vous êtes hors ligne</h1>
+      <p>Le formulaire de réservation déjà ouvert peut conserver une demande en attente sur cet appareil, mais aucune place n’est confirmée avant validation en ligne. Le stock et les autres données nécessitent Internet.</p>
+      <p id="network-status" role="status">Vérifiez votre Wi-Fi ou vos données mobiles, puis réessayez.</p>
+      <button type="button" onclick="location.reload()">Réessayer</button>
+    </main>
+    <script>
+      addEventListener("online", () => {
+        document.getElementById("network-status").textContent = "Connexion rétablie. Rechargement…";
+        location.reload();
+      });
+    </script>
+  </body>
+</html>

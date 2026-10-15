@@ -41,6 +41,12 @@ src/
 - **`prefers-reduced-motion`** neutralise toutes les animations.
 - Variantes `Reveal` : `up` · `down` · `left` · `right` · `scale` · `blur` · `clip` (rideau) · `line` (trait) · `group` (déclenche les `MaskLine` enfants).
 
+## Mode hors ligne (PWA)
+- `public/sw.js` met en cache la page de secours autonome et les ressources statiques ; les API et pages métier ne sont pas mises en cache.
+- `predev` et `prebuild` génèrent les icônes PWA nécessaires à l'installation.
+- Le formulaire de réservation et la liste d'administration déjà ouverts peuvent mettre en attente une réservation ou un pointage dans IndexedDB ; le serveur revalide la disponibilité et les droits à la reconnexion. Une réservation en attente n'est jamais présentée comme confirmée.
+- La navigation/reprise après fermeture hors ligne et les autres fonctions métier (consultation des données, liste d'attente, stocks, projets et suivi pédagogique) nécessitent encore Internet. La file locale est effacée à la déconnexion.
+
 ## Images plein écran et son personnalisé
 - `components/system/image-viewer.tsx` : un seul gestionnaire global (délégation des clics/clavier + visionneuse en portail) pour les photos des machines, salles, projets, laboratoires, stocks et autres contenus. Groupes `data-gallery`; zoom molette/boutons/pincement, déplacement, flèches, téléchargement, Échap. Les images dans les formulaires utilisent `openImageViewer` via un bouton séparé pour ne pas gêner la sélection du fichier. Les logos de navigation, icônes et images `data-no-zoom` restent inchangés.
 - `components/system/sound-settings.tsx` + `lib/sound.ts` : préférences sonores par événement. Choix de mélodie, volume, vibration, fichier personnel (IndexedDB) ; `localStorage` pour les réglages. Les données audio ne sont jamais envoyées au serveur. Le bouton de réglage est accessible depuis l'en-tête et le menu mobile.
