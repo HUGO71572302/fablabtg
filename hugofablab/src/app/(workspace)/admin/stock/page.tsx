@@ -31,20 +31,20 @@ export default async function AdminStockPage() {
         eyebrow="Inventaire du lab"
         title="Stock & matériel"
         subtitle="Suivez consommables, matières, pièces et outillage. Chaque entrée et sortie est journalisée : vous savez toujours ce qui reste et qui l'a utilisé."
-        action={<div className="flex flex-wrap gap-2"><Link href="/admin/stock/journal" className={buttonClass("outline", "md")}><History className="h-4 w-4" />Journal entrées / sorties</Link><StockEditor /></div>}
+        action={<div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2"><Link href="/admin/stock/journal" className={buttonClass("outline", "md", "w-full justify-center")}><History className="h-4 w-4" />Journal entrées / sorties</Link><div className="[&_button]:w-full"><StockEditor /></div></div>}
       />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <Stat label="Références actives" value={counts.total} hint="articles suivis" accent="neutral" />
         <Stat label="Unités en stock" value={counts.units} hint="toutes catégories confondues" accent="green" />
         <Stat label="Sous le seuil" value={counts.low} hint="à réapprovisionner" accent="yellow" />
         <Stat label="En rupture" value={counts.out} hint="indisponibles pour les ateliers" accent="red" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[1.55fr_1fr]">
         <StockBoard items={items} movementsByItem={movementsByItem} />
 
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <Card>
             <CardHeader eyebrow="Consommation" title="Sorties sur 7 jours" subtitle="Mouvements de sortie et pertes enregistrés dans l'atelier." />
             <CardContent>

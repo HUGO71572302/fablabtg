@@ -27,6 +27,8 @@ La configuration Drizzle lit `DATABASE_URL` depuis `.env.local`. Vérifiez que l
 
 ### Mise à jour d'une base déjà déployée
 
+Pour ajouter la section **Avis des utilisateurs**, synchronisez le nouveau schéma `user_reviews` avec la base de production avant d'ouvrir les nouvelles pages : récupérez d'abord les variables de production dans `.env.local`, puis lancez `npx drizzle-kit push` depuis le dossier du projet. Cette table conserve la note, le texte, le statut de publication et la sélection mise en avant ; elle ne modifie pas les données existantes.
+
 Pour activer la mise en attente locale des demandes de réservation avec protection contre les doublons lors de la synchronisation, ajoutez cette colonne et son index unique avant de déployer la nouvelle version. Dans Supabase → **SQL Editor**, exécutez :
 
 ```sql

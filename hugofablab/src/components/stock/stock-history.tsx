@@ -118,7 +118,7 @@ export function StockHistory({
                       {m.beneficiary ? <> → <b className="font-bold text-foreground">{m.beneficiary}</b></> : null}
                       {m.note ? <> — {m.note}</> : null}
                     </p>
-                    <a href={`/print/stock/recu/${m.id}`} target="_blank" rel="noreferrer" className="mt-1 inline-block text-base font-bold text-togo-green underline-offset-4 hover:underline dark:text-lime">
+                    <a href={`/print/stock/recu/${m.id}`} className="mt-1 inline-block text-base font-bold text-togo-green underline-offset-4 hover:underline dark:text-lime">
                       Imprimer le reçu
                     </a>
                   </li>

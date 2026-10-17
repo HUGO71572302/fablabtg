@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Cpu, GraduationCap, Lightbulb, MonitorSmartphone, Printer, School, ShieldCheck, Sparkles, Wrench } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, Cpu, GraduationCap, Lightbulb, MessageSquareQuote, MonitorSmartphone, Printer, School, ShieldCheck, Sparkles, Star, Wrench } from "lucide-react";
 import { db } from "@/db";
-import { labs, projects } from "@/db/schema";
+import { labs, projects, userReviews, users } from "@/db/schema";
 import { PublicHeader } from "@/components/layout/public-header";
 import { Faq } from "@/components/marketing/faq";
 import { LabDirectory } from "@/components/marketing/lab-directory";
@@ -18,10 +18,17 @@ import { mediaUrl } from "@/lib/media-url";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [user, labsList, recentProjects] = await Promise.all([
+  const [user, labsList, recentProjects, publicReviews] = await Promise.all([
     getCurrentUser(),
     listLabs(),
     db.select({ project: projects, slug: labs.slug, labName: labs.name }).from(projects).innerJoin(labs, eq(projects.labId, labs.id)).where(and(eq(projects.published, true), eq(labs.active, true))).orderBy(desc(projects.createdAt)).limit(3),
+    db.select({ review: userReviews, author: users.name, labSlug: labs.slug, labName: labs.name, schoolName: labs.schoolName })
+      .from(userReviews)
+      .innerJoin(users, eq(userReviews.userId, users.id))
+      .innerJoin(labs, eq(userReviews.labId, labs.id))
+      .where(and(eq(userReviews.published, true), eq(labs.active, true), eq(users.active, true)))
+      .orderBy(desc(userReviews.featured), desc(userReviews.createdAt))
+      .limit(6),
   ]);
   const appHref = user ? (user.role === "fabmanager" ? "/admin" : "/app") : null;
   const machines = labsList.reduce((sum, l) => sum + l.machines, 0);
@@ -36,9 +43,9 @@ export default async function HomePage() {
         {/* ── 00 · Hero ── */}
         <section className="site-container relative pb-12 pt-10 sm:pb-16 sm:pt-14 lg:pt-[64px]" aria-labelledby="hero-title">
           <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.02fr] lg:gap-14">
-            <Reveal variant="group">
+            <Reveal variant="group" className="landing-hero-copy">
               <p className="eyebrow text-togo-green dark:text-lime"><MaskLine>Créer. Expérimenter. Transmettre.</MaskLine></p>
-              <h1 id="hero-title" className="display-text mt-6 text-[49px] sm:text-[65px] lg:text-[72px] xl:text-[77px]">
+              <h1 id="hero-title" className="display-text mt-6 text-[clamp(2.5rem,12vw,3.05rem)] sm:text-[65px] lg:text-[72px] xl:text-[77px]">
                 <MaskLine className="[--line:0]">Le futur</MaskLine>
                 <MaskLine className="[--line:1]">se fabrique</MaskLine>
                 <MaskLine className="[--line:2]">
@@ -48,15 +55,15 @@ export default async function HomePage() {
                   </span>
                 </MaskLine>
               </h1>
-              <Reveal delay={450} className="mt-8 max-w-[390px] text-base leading-[1.85] text-muted-foreground sm:text-base" as="p">
+              <Reveal delay={80} className="mt-6 max-w-[390px] text-base leading-[1.75] text-muted-foreground sm:mt-8 sm:leading-[1.85]" as="p">
                 Des idées aux objets, un atelier pour révéler les talents. Rejoignez le réseau des FabLabs scolaires, <strong className="font-medium text-foreground">de la 6e à la Terminale.</strong>
               </Reveal>
-              <Reveal delay={560} className="mt-7 flex flex-wrap items-center gap-3">
-                <Link href={appHref ?? "/register"} className={buttonClass("primary", "lg")}>{appHref ? "Retrouver mon espace" : "Je rejoins mon lab"}<ArrowUpRight className="h-4 w-4" /></Link>
-                <Link href="/creer-mon-lab" className={buttonClass("outline", "lg")}>Je crée mon lab<ArrowRight className="h-4 w-4" /></Link>
+              <Reveal delay={140} className="mt-6 flex flex-col items-stretch gap-3 sm:mt-7 sm:flex-row sm:flex-wrap sm:items-center">
+                <Link href={appHref ?? "/register"} className={buttonClass("primary", "lg", "w-full sm:w-auto")}>{appHref ? "Retrouver mon espace" : "Je rejoins mon lab"}<ArrowUpRight className="h-4 w-4" /></Link>
+                <Link href="/creer-mon-lab" className={buttonClass("outline", "lg", "w-full sm:w-auto")}>Je crée mon lab<ArrowRight className="h-4 w-4" /></Link>
               </Reveal>
-              <Reveal delay={680} className="mt-7 flex items-center gap-2 text-[13px] text-muted-foreground">
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-togo-green/10 text-togo-green dark:text-lime"><Check className="h-3 w-3" /></span>Sans e-mail pour les élèves<span className="mx-1 h-1 w-1 rounded-full bg-border" />Sur mobile &amp; ordinateur
+              <Reveal delay={220} className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground sm:mt-7">
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-togo-green/10 text-togo-green dark:text-lime"><Check className="h-3 w-3" /></span><span>Sans e-mail pour les élèves</span><span className="mx-1 hidden h-1 w-1 rounded-full bg-border sm:inline-block" /><span>Sur mobile &amp; ordinateur</span>
               </Reveal>
             </Reveal>
 
@@ -173,11 +180,36 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* ── 05 · FAQ ── */}
+        {/* ── 05 · Avis publiés ── */}
+        {publicReviews.length > 0 && (
+          <section id="avis" className="site-container section" aria-labelledby="reviews-title">
+            <SectionHeading index="05" eyebrow="La communauté témoigne" title={<span id="reviews-title">Ils fabriquent. Ils racontent.</span>} lead="Les avis publiés par les responsables des FabLabs du réseau." />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {publicReviews.map(({ review, author, labSlug, labName, schoolName }, index) => (
+                <Reveal key={review.id} variant="up" delay={index * 70}>
+                  <article className={`relative flex h-full flex-col overflow-hidden rounded-[22px] border p-5 sm:p-6 ${review.featured ? "border-togo-yellow/50 bg-gradient-to-br from-togo-yellow/15 via-card to-card shadow-md" : "border-border bg-card"}`}>
+                    {review.featured && <span className="absolute right-4 top-4 rounded-full bg-togo-yellow/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800 dark:text-togo-yellow">À la une</span>}
+                    <div className="flex items-center gap-1" aria-label={`${review.rating} sur 5 étoiles`}>
+                      {[1, 2, 3, 4, 5].map((value) => <Star key={value} className={`h-4 w-4 ${value <= review.rating ? "fill-amber-400 text-amber-500" : "text-muted-foreground/30"}`} />)}
+                    </div>
+                    <MessageSquareQuote className="mt-4 h-6 w-6 text-togo-green/50 dark:text-lime/70" aria-hidden="true" />
+                    <blockquote className="mt-2 flex-1 text-[15px] font-medium leading-7 text-foreground">{review.message}</blockquote>
+                    <div className="mt-5 border-t border-border/70 pt-4">
+                      <p className="font-bold">{author}</p>
+                      <Link href={`/lab/${labSlug}`} className="mt-1 inline-flex items-center gap-1 text-[13px] text-muted-foreground transition hover:text-togo-green dark:hover:text-lime">{labName} · {schoolName}<ArrowUpRight className="h-3 w-3 shrink-0" /></Link>
+                    </div>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── 06 · FAQ ── */}
         <section className="site-container pb-[var(--section-y)]" aria-labelledby="faq-title">
           <div className="grid gap-8 border-t border-border pt-12 lg:grid-cols-[0.85fr_1.3fr]">
             <Reveal variant="group" className="lg:sticky-label lg:self-start">
-              <p className="eyebrow text-muted-foreground"><span className="mr-2 font-mono text-[13px] tracking-normal">05</span>On vous répond</p>
+              <p className="eyebrow text-muted-foreground"><span className="mr-2 font-mono text-[13px] tracking-normal">06</span>On vous répond</p>
               <h2 id="faq-title" className="section-title mt-4"><MaskLine>Simple, jusque</MaskLine><MaskLine className="[--line:1]">dans les détails.</MaskLine></h2>
               <p className="mt-4 max-w-[270px] text-sm leading-6 text-muted-foreground">Un atelier accueillant commence par une application facile à utiliser.</p>
               <div className="mt-6 flex gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-muted text-togo-green dark:text-lime"><MonitorSmartphone className="h-5 w-5" /></span><span className="grid h-11 w-11 place-items-center rounded-2xl bg-muted text-togo-green dark:text-lime"><ShieldCheck className="h-5 w-5" /></span></div>

@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <AuthCard
       title="Connexion"
-      subtitle="Élèves : identifiant + code PIN. Responsables : e-mail + mot de passe."
+      subtitle="Élèves et membres externes : identifiant + code PIN. Responsables : e-mail + mot de passe."
       aside={
         <>
           {error && (

@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const [unread, lastId, lab, subscription, platformAdmin] = await Promise.all([unreadCount(user.id), lastNotificationId(user.id), getLab(user.labId), getSubscriptionAccess(user.labId), isPlatformAdmin(user)]);
   const brand = lab ? labBrand(lab) : { name: "HUGO FABLAB", school: "", logoUrl: null };
   return (
-    <AppShell user={{ name: user.name, role: user.role, email: user.email ?? user.username ?? "" }} unread={unread} lab={brand} subscription={{ phase: subscription.phase, endsAt: subscription.endsAt.toISOString() }} platformAdmin={platformAdmin}>
+    <AppShell user={{ name: user.name, role: user.role, email: user.email ?? user.username ?? "" }} unread={unread} lab={brand} subscription={{ phase: subscription.phase, plan: subscription.plan, endsAt: subscription.endsAt.toISOString(), accessAvailable: subscription.access, exempt: subscription.exempt }} platformAdmin={platformAdmin}>
       <NotificationListener initialLastId={lastId} />
       {children}
     </AppShell>

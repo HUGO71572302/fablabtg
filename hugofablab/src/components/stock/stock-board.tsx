@@ -57,10 +57,10 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
   }, [items, query, category, onlyAlerts, showArchived, sort]);
 
   return (
-    <section aria-label="Inventaire du stock">
+    <section aria-label="Inventaire du stock" className="min-w-0">
       <div className="mb-5 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[210px] flex-1">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="relative col-span-2 min-w-0 sm:min-w-[210px] sm:flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
@@ -71,7 +71,7 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
               className="min-h-11 w-full rounded-full border border-border bg-card py-2 pl-10 pr-4 text-[15px] font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15"
             />
           </div>
-          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Trier les articles" className="min-h-11 rounded-full border border-border bg-card px-4 text-[15px] font-medium">
+          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Trier les articles" className="col-span-2 min-h-11 w-full min-w-0 rounded-full border border-border bg-card px-4 text-[15px] font-medium sm:col-span-1 sm:w-auto">
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
@@ -81,7 +81,7 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
             onClick={() => setOnlyAlerts((v) => !v)}
             aria-pressed={onlyAlerts}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold transition",
+              "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-full border px-2.5 text-[13px] font-bold transition sm:px-4",
               onlyAlerts ? "border-togo-red bg-togo-red text-white" : "border-border bg-card text-muted-foreground hover:bg-muted",
             )}
           >
@@ -92,12 +92,12 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
               type="button"
               onClick={() => setShowArchived((v) => !v)}
               aria-pressed={showArchived}
-              className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold transition", showArchived ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground hover:bg-muted")}
+              className={cn("inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-full border px-2.5 text-[13px] font-bold transition sm:px-4", showArchived ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground hover:bg-muted")}
             >
               {showArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />} Archivés
             </button>
           )}
-          {!readOnly && <div className="ml-auto"><StockEditor /></div>}
+          {!readOnly && <div className="col-span-2 sm:ml-auto sm:col-span-1 [&>button]:w-full"><StockEditor /></div>}
         </div>
 
         <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
@@ -145,8 +145,8 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-1.5">
-                        <h3 className="text-[15px] font-extrabold leading-snug tracking-[-0.01em]">{item.name}</h3>
-                        {item.out ? <Badge tone="red">Rupture</Badge> : item.low ? <Badge tone="yellow">Stock bas</Badge> : null}
+                        <h3 className="min-w-0 break-words text-[15px] font-extrabold leading-snug tracking-[-0.01em]">{item.name}</h3>
+                        {item.out ? <Badge tone="red" className="shrink-0">Rupture</Badge> : item.low ? <Badge tone="yellow" className="shrink-0">Stock bas</Badge> : null}
                       </div>
                       <p className="mt-1 text-[13px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{STOCK_CATEGORY_LABEL[item.category]}</p>
                     </div>
@@ -169,15 +169,15 @@ export function StockBoard({ items: fromServer, movementsByItem, readOnly = fals
                   </div>
 
                   {(item.location || item.supplier) && (
-                    <p className="mt-2.5 space-x-3 text-[13px] font-medium text-muted-foreground">
-                      {item.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{item.location}</span>}
-                      {item.supplier && <span className="inline-flex items-center gap-1"><Truck className="h-3 w-3" />{item.supplier}</span>}
+                    <p className="mt-2.5 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[13px] font-medium text-muted-foreground">
+                      {item.location && <span className="inline-flex min-w-0 max-w-full items-center gap-1 break-all"><MapPin className="h-3 w-3 shrink-0" />{item.location}</span>}
+                      {item.supplier && <span className="inline-flex min-w-0 max-w-full items-center gap-1 break-all"><Truck className="h-3 w-3 shrink-0" />{item.supplier}</span>}
                     </p>
                   )}
                   {item.note && <p className="mt-2 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{item.note}</p>}
 
                   <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-                    <a href={`/print/stock/fiche/${item.id}`} target="_blank" rel="noreferrer" className={buttonClass("outline", "sm")}><Printer className="h-4 w-4" />Fiche</a>
+              <a href={`/print/stock/fiche/${item.id}`} className={buttonClass("outline", "sm")}><Printer className="h-4 w-4" />Fiche</a>
                     <StockHistory
                       item={item}
                       movements={movementsByItem[item.id] ?? []}

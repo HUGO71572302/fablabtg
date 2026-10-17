@@ -66,7 +66,7 @@ async function seed() {
       "Bienvenue au HUGO FABLAB ! Pensez à apporter votre fichier (STL, SVG, DXF) sur clé USB ou par e-mail avant votre créneau.",
   });
 
-  // Lab de démonstration : actif 30 jours à l'initialisation. Les nouveaux labs créés par un responsable ont un essai de 10 min.
+  // Lab de démonstration : actif 30 jours à l'initialisation. Les nouveaux labs bénéficient aussi de 30 jours d'essai.
   await db.insert(labSubscriptions).values({
     labId: L,
     plan: "plus",

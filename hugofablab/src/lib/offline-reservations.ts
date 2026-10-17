@@ -19,6 +19,12 @@ export type PendingCheckin = {
 const DATABASE = "hugo-fablab-offline";
 const RESERVATIONS = "reservations";
 const CHECKINS = "checkins";
+const PRIVATE_PAGES_CACHE = "hf-private-pages-v1";
+
+/** Efface uniquement les pages contenant des données du compte ; conserve les opérations en attente. */
+export async function clearPrivateOfflinePages(): Promise<void> {
+  if (typeof caches !== "undefined") await caches.delete(PRIVATE_PAGES_CACHE);
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

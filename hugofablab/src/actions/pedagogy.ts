@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { grades, users } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { planIncludes } from "@/lib/billing";
 import type { GradeKind } from "@/lib/pedagogy";
 import type { ActionState } from "./auth";
 
@@ -17,6 +18,7 @@ const validKind = (v: unknown): GradeKind => (v === "observation" ? "observation
 /** Saisie d'une note ou d'une observation pour un apprenant du lab (responsable uniquement). */
 export async function saveGradeAction(_: ActionState, fd: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
+  if (!(await planIncludes(admin.labId, "plus"))) return { error: "La saisie complète des notes et observations est incluse dans les formules Plus et Réseau." };
   const userId = Number(fd.get("userId") || 0);
   const label = String(fd.get("label") ?? "").trim();
   const kind = validKind(fd.get("kind"));
@@ -35,6 +37,7 @@ export async function saveGradeAction(_: ActionState, fd: FormData): Promise<Act
   const [learner] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!learner) return { error: "Apprenant introuvable." };
   if (learner.labId !== admin.labId) return { error: "Cet apprenant n'appartient pas à votre lab." };
+  if (learner.role !== "student") return { error: "Le suivi pédagogique est réservé aux élèves." };
 
   await db.insert(grades).values({
     labId: admin.labId,
@@ -54,6 +57,7 @@ export async function saveGradeAction(_: ActionState, fd: FormData): Promise<Act
 /** Suppression d'une évaluation (lab scoppé). */
 export async function deleteGradeAction(id: number): Promise<{ error?: string; success?: string }> {
   const admin = await requireAdmin();
+  if (!(await planIncludes(admin.labId, "plus"))) return { error: "La gestion complète du suivi pédagogique est incluse dans les formules Plus et Réseau." };
   const deleted = await db.delete(grades).where(and(eq(grades.id, id), eq(grades.labId, admin.labId))).returning({ id: grades.id });
   if (!deleted.length) return { error: "Évaluation introuvable." };
   revalidateAll();

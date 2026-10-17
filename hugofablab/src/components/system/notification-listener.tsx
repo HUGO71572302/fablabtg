@@ -11,7 +11,7 @@ type Incoming = { id: number; type: NotificationType; title: string; message: st
 
 export function showNotificationToast(n: Incoming) {
   const meta = NOTIF_META[n.type] ?? NOTIF_META.info;
-  const opts = { description: n.message, icon: <span className="text-lg">{meta.emoji}</span> };
+  const opts = { description: n.message, icon: <span className="text-lg">{meta.emoji}</span>, duration: 8500 };
   switch (meta.tone) {
     case "success":
       toast.success(n.title, opts);
@@ -30,10 +30,7 @@ export function showNotificationToast(n: Incoming) {
   }
 }
 
-/**
- * Écoute les notifications en temps réel via Server-Sent Events.
- * En cas d'échec du flux (proxy, réseau), bascule automatiquement sur un polling léger.
- */
+/** Vérifie régulièrement les nouvelles notifications sans garder de requête ouverte. */
 export function NotificationListener({ initialLastId }: { initialLastId: number }) {
   const router = useRouter();
   const lastIdRef = useRef(initialLastId);
@@ -49,63 +46,44 @@ export function NotificationListener({ initialLastId }: { initialLastId: number 
   }, []);
 
   useEffect(() => {
-    let es: EventSource | null = null;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
-    let errors = 0;
     let stopped = false;
+    let checking = false;
 
     const handle = (n: Incoming) => {
-      if (n.id <= lastIdRef.current) return;
+      if (n.id <= lastIdRef.current) return false;
       lastIdRef.current = n.id;
       showNotificationToast(n);
       playNotificationSound(n.type);
-      router.refresh();
+      return true;
     };
 
-    const startPolling = () => {
-      if (pollTimer) return;
-      pollTimer = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/notifications?after=${lastIdRef.current}`, { cache: "no-store" });
-          if (!res.ok) return;
-          const data = (await res.json()) as { items: Incoming[] };
-          data.items.forEach(handle);
-        } catch {
-          /* réseau indisponible : on réessaiera */
-        }
-      }, 4000);
-    };
-
-    const connect = () => {
-      if (stopped) return;
+    const checkForNotifications = async () => {
+      if (stopped || checking || document.visibilityState !== "visible") return;
+      checking = true;
       try {
-        es = new EventSource(`/api/notifications/stream?after=${lastIdRef.current}`);
-        es.onmessage = (ev) => {
-          errors = 0;
-          try {
-            handle(JSON.parse(ev.data) as Incoming);
-          } catch {
-            /* ignore */
-          }
-        };
-        es.onerror = () => {
-          errors += 1;
-          if (errors >= 2) {
-            es?.close();
-            es = null;
-            startPolling();
-          }
-        };
+        const res = await fetch(`/api/notifications?after=${lastIdRef.current}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { items: Incoming[] };
+        if (stopped) return;
+        let receivedNewNotification = false;
+        data.items.forEach((item) => {
+          receivedNewNotification = handle(item) || receivedNewNotification;
+        });
+        if (receivedNewNotification) router.refresh();
       } catch {
-        startPolling();
+        /* réseau indisponible : le prochain contrôle réessaiera */
+      } finally {
+        checking = false;
       }
     };
 
-    connect();
+    const interval = window.setInterval(checkForNotifications, 3000);
+    document.addEventListener("visibilitychange", checkForNotifications);
+    void checkForNotifications();
     return () => {
       stopped = true;
-      es?.close();
-      if (pollTimer) clearInterval(pollTimer);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkForNotifications);
     };
   }, [router]);
 

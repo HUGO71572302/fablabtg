@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
-import { loginAction, registerStudentAction, type ActionState } from "@/actions/auth";
+import { loginAction, registerMemberAction, type ActionState } from "@/actions/auth";
 import { Button, Input, Label, Select, cn } from "@/components/ui";
 import { CLASS_LEVELS } from "@/lib/labels";
 
@@ -87,7 +87,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
           name="identifier"
           autoComplete="username"
           autoCapitalize="none"
-          placeholder="Élève : identifiant ou tél · Responsable : e-mail"
+          placeholder="Élève / externe : identifiant ou tél · Responsable : e-mail"
           required
         />
       </div>
@@ -96,19 +96,22 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
         <SecretInput
           name="secret"
           autoComplete="current-password"
-          placeholder="Élève : code PIN · Responsable : mot de passe"
+          placeholder="Élève / externe : code PIN · Responsable : mot de passe"
         />
         <p className="mt-1 text-sm text-muted-foreground">
-          Élève ayant oublié son PIN ? Le responsable de votre lab peut vous en générer un nouveau.
+          Élève ou membre externe ayant oublié son PIN ? Le responsable de votre lab peut vous en générer un nouveau.
         </p>
       </div>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Se connecter
       </Button>
       {googleEnabled && <GoogleButton />}
+      <p className="text-center text-sm text-muted-foreground">
+        Responsable ? <Link href="/recuperer-mot-de-passe" className="font-semibold text-togo-green hover:underline dark:text-emerald-300">Mot de passe oublié</Link>
+      </p>
       <div className="grid gap-2 text-center text-base text-muted-foreground sm:grid-cols-2">
         <Link href="/register" className="rounded-xl border border-border px-3 py-2 font-semibold text-togo-green hover:bg-muted dark:text-emerald-300">
-          Élève : créer mon compte
+          Élève / externe : créer un compte
         </Link>
         <Link href="/creer-mon-lab" className="rounded-xl border border-border px-3 py-2 font-semibold hover:bg-muted">
           Responsable : créer mon lab
@@ -130,8 +133,9 @@ function suggestUsername(name: string) {
   return parts.length === 1 ? parts[0] : `${parts[0]}.${parts[parts.length - 1]}`;
 }
 
-export function StudentRegisterForm({ labs, defaultLabId }: { labs: { id: number; name: string; school: string }[]; defaultLabId?: number }) {
-  const [state, action, pending] = useActionState(registerStudentAction, null);
+export function MemberRegisterForm({ labs, defaultLabId }: { labs: { id: number; name: string; school: string }[]; defaultLabId?: number }) {
+  const [state, action, pending] = useActionState(registerMemberAction, null);
+  const [accountType, setAccountType] = useState<"student" | "external">("student");
   const [username, setUsername] = useState("");
   const [touched, setTouched] = useState(false);
   return (
@@ -148,6 +152,14 @@ export function StudentRegisterForm({ labs, defaultLabId }: { labs: { id: number
         </Select>
       </div>
       <div>
+        <Label htmlFor="accountType">Type de compte</Label>
+        <Select id="accountType" name="accountType" value={accountType} onChange={(e) => setAccountType(e.target.value as "student" | "external")}>
+          <option value="student">Élève</option>
+          <option value="external">Utilisateur externe (non élève)</option>
+        </Select>
+        <p className="mt-1 text-sm text-muted-foreground">Un compte externe n’a pas de classe ni de suivi pédagogique. Le responsable doit l’activer avant la première connexion.</p>
+      </div>
+      <div>
         <Label htmlFor="name">Nom et prénom</Label>
         <Input
           id="name"
@@ -161,25 +173,26 @@ export function StudentRegisterForm({ labs, defaultLabId }: { labs: { id: number
           }}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="classLevel">Classe</Label>
-          <Select id="classLevel" name="classLevel" required defaultValue="">
-            <option value="" disabled>
-              Choisir…
-            </option>
-            {CLASS_LEVELS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
+      {accountType === "student" ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="classLevel">Classe</Label>
+            <Select id="classLevel" name="classLevel" required defaultValue="">
+              <option value="" disabled>Choisir…</option>
+              {CLASS_LEVELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="section">Série / groupe (optionnel)</Label>
+            <Input id="section" name="section" placeholder="ex. D, C1, A4, B" maxLength={20} />
+          </div>
         </div>
+      ) : (
         <div>
-          <Label htmlFor="section">Série / groupe (optionnel)</Label>
-          <Input id="section" name="section" placeholder="ex. D, C1, A4, B" maxLength={20} />
+          <Label htmlFor="organisation">Organisation / structure (facultatif)</Label>
+          <Input id="organisation" name="organisation" placeholder="ex. Association, entreprise, indépendant" maxLength={80} />
         </div>
-      </div>
+      )}
       <div>
         <Label htmlFor="username">Identifiant (pour se connecter)</Label>
         <Input
@@ -211,10 +224,10 @@ export function StudentRegisterForm({ labs, defaultLabId }: { labs: { id: number
       <div>
         <Label htmlFor="phone">Numéro de téléphone</Label>
         <Input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="90 00 00 00" required />
-        <p className="mt-1 text-sm text-muted-foreground">Le vôtre ou celui d'un parent : il permet au responsable de vous joindre.</p>
+        <p className="mt-1 text-sm text-muted-foreground">{accountType === "student" ? "Le vôtre ou celui d'un parent : il permet au responsable de vous joindre." : "Il permet au responsable du FabLab de vous joindre."}</p>
       </div>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Créer mon compte élève
+        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Créer mon compte {accountType === "student" ? "élève" : "externe"}
       </Button>
       <p className="text-center text-base text-muted-foreground">
         Déjà inscrit ?{" "}

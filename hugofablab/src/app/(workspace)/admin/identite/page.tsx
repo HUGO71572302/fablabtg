@@ -4,6 +4,7 @@ import { ExternalLink, KeyRound, Save, Share2 } from "lucide-react";
 import { saveLabIdentityAction } from "@/actions/labs";
 import { Badge, Card, CardContent, CardHeader, Input, Label, PageHeader, Textarea, buttonClass } from "@/components/ui";
 import { DeactivateLabControl } from "@/components/admin/deactivate-lab-control";
+import { ManagerProfileForm } from "@/components/admin/manager-profile-form";
 import { CopyField } from "@/components/ui/copy-field";
 import { ImageInput } from "@/components/ui/image-input";
 import { requireAdmin } from "@/lib/auth";
@@ -41,6 +42,13 @@ export default async function LabIdentityPage({ searchParams }: { searchParams: 
           ❌ {error === "image" ? "Une image n'a pas pu être lue (JPG/PNG/WebP, 10 Mo max)." : "Le nom du lab et de l'établissement sont obligatoires."}
         </p>
       )}
+
+      <Card>
+        <CardHeader title="Mon profil de responsable" subtitle="Modifiez votre nom, votre identifiant de connexion, votre téléphone et, si vous le souhaitez, votre mot de passe." />
+        <CardContent>
+          <ManagerProfileForm profile={{ name: admin.name, username: admin.username, phone: admin.phone, email: admin.email }} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader title={<span className="flex items-center gap-2"><Share2 className="h-4 w-4" /> Lien d&apos;inscription pour vos élèves</span>} subtitle="Partagez-le (WhatsApp, affiche, QR code) : votre lab sera présélectionné." />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
-import { ArrowUpRight, Bell, CalendarDays, ChevronRight, ListChecks, Megaphone, PlusCircle } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarDays, ChevronRight, ListChecks, Megaphone, MessageSquareQuote, PlusCircle, Star } from "lucide-react";
 import { db } from "@/db";
 import { notifications, waitlist } from "@/db/schema";
 import { ReservationCard } from "@/components/reservations/reservation-card";
@@ -53,6 +53,12 @@ export default async function StudentHome() {
           <p>{settings.announcement}</p>
         </div>
       )}
+
+      <Link href="/app/avis" className="group relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-[22px] border border-togo-yellow/35 bg-gradient-to-r from-togo-yellow/20 via-card to-togo-green/10 p-5 transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6">
+        <div className="absolute -right-6 -top-10 h-36 w-36 rounded-full bg-togo-yellow/15 blur-2xl transition group-hover:bg-togo-yellow/25" />
+        <div className="relative flex items-center gap-4"><span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest text-lime shadow-lg"><MessageSquareQuote className="h-6 w-6" /></span><div><p className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.16em] text-togo-green dark:text-lime"><Star className="h-3.5 w-3.5 fill-current" /> Votre voix compte</p><h2 className="mt-1 text-lg font-extrabold sm:text-xl">Avis des utilisateurs</h2><p className="mt-1 text-sm text-muted-foreground">Racontez votre expérience et découvrez les retours de la communauté.</p></div></div>
+        <span className={buttonClass("primary", "md", "relative")}>Donner mon avis<ArrowUpRight className="h-4 w-4" /></span>
+      </Link>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="À venir" value={upcoming.length} accent="green" />

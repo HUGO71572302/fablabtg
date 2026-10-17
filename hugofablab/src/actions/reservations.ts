@@ -143,6 +143,8 @@ async function adminView(id: number, labId: number) {
 
 export async function adminSetStatusAction(id: number, status: "confirmee" | "annulee", note?: string): Promise<SimpleResult> {
   const admin = await requireAdmin();
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Réservation invalide." };
+  if (status !== "confirmee" && status !== "annulee") return { error: "Statut de réservation invalide." };
   const view = await adminView(id, admin.labId);
   if (!view) return { error: "Réservation introuvable." };
   if (view.status === status) return { error: `Déjà ${status === "confirmee" ? "confirmée" : "annulée"}.` };
@@ -212,8 +214,10 @@ export async function adminUpdateReservationAction(_: ReserveState, fd: FormData
 
 export async function checkInAction(id: number): Promise<SimpleResult> {
   const admin = await requireAdmin();
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Réservation invalide." };
   const view = await adminView(id, admin.labId);
   if (!view) return { error: "Réservation introuvable." };
+  if (view.status !== "confirmee") return { error: "Seules les réservations confirmées peuvent être pointées." };
   if (view.checkedInAt) return { success: `Présence de ${view.user.name} déjà enregistrée.` };
   const [checkedIn] = await db
     .update(reservations)
@@ -224,4 +228,9 @@ export async function checkInAction(id: number): Promise<SimpleResult> {
   await notify(view.user.id, "presence", "📍 Présence pointée", `Bienvenue au FabLab ! Présence enregistrée pour ${view.resource.name} (${fmtRange(view.startAt, view.endAt)}).`, id);
   revalidateAll();
   return { success: `Présence de ${view.user.name} enregistrée.` };
+}
+
+/** Adaptateur sans valeur de retour pour le formulaire du pointage QR. */
+export async function checkInFromQrAction(id: number, _formData: FormData): Promise<void> {
+  await checkInAction(id);
 }

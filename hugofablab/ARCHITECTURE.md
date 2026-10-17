@@ -19,6 +19,7 @@ src/
 │  ├─ auth/                     Formulaires de connexion / inscription élève / création de lab
 │  ├─ reservations/             Formulaire, carte, calendrier hebdo, QR code, actions élève
 │  ├─ projects/                 Carte, formulaire et actions des projets
+│  ├─ reviews/                  Avis des membres, formulaire et modération du responsable
 │  ├─ stock/                    Inventaire : jauge de niveau, graphe de consommation, carte article, éditeur, journal
 │  ├─ admin/                    Éditeurs réservés au responsable (ressources, réservations, élèves)
 │  └─ system/                   Comportements transverses : notifications temps réel, PWA, visionneuse d'images, réglages sonores
@@ -51,6 +52,12 @@ src/
 - `components/system/image-viewer.tsx` : un seul gestionnaire global (délégation des clics/clavier + visionneuse en portail) pour les photos des machines, salles, projets, laboratoires, stocks et autres contenus. Groupes `data-gallery`; zoom molette/boutons/pincement, déplacement, flèches, téléchargement, Échap. Les images dans les formulaires utilisent `openImageViewer` via un bouton séparé pour ne pas gêner la sélection du fichier. Les logos de navigation, icônes et images `data-no-zoom` restent inchangés.
 - `components/system/sound-settings.tsx` + `lib/sound.ts` : préférences sonores par événement. Choix de mélodie, volume, vibration, fichier personnel (IndexedDB) ; `localStorage` pour les réglages. Les données audio ne sont jamais envoyées au serveur. Le bouton de réglage est accessible depuis l'en-tête et le menu mobile.
 
+## Avis des utilisateurs
+- `/app/avis` : les élèves et membres externes peuvent donner une note et un avis, puis lire les avis publiés dans leur lab.
+- `/admin/avis` : le responsable modère les avis, les publie ou les met en avant.
+- `user_reviews` : un avis par membre ; si son auteur le modifie, l'avis repasse en attente de validation.
+- Après déploiement de cette fonctionnalité, appliquer le nouveau schéma à la base de production avec `npx drizzle-kit push` avant d'utiliser les pages d'avis.
+
 ## Outils
 - `scripts/check-responsive.mjs` : parcours Chromium (360 → 1440 px), connexion, menus, débordements.
 - `scripts/check-media-sound.mjs` : visionneuse (clavier/mobile/zoom) et personnalisation sonore (préférences, WAV, temps réel).
@@ -58,7 +65,7 @@ src/
 - `scripts/generate-brand-assets.mjs` : icônes PWA et optimisation des visuels.
 
 ## Abonnements
-- `lab_subscriptions` : essai de 10 minutes, formule, dates d'accès et statut du lab.
+- `lab_subscriptions` : essai de 30 jours, formule, dates d'accès et statut du lab.
 - `payment_requests` : demande Mobile Money, référence, preuve, décision et validation.
 - `app/(billing)/abonnement` : responsable du lab ; paiement TMoney/Flooz + preuve + suivi de demande.
 - `app/(billing)/gestion-abonnements` : administrateur plateforme ; validation humaine gratuite, refus ou accès de courtoisie.

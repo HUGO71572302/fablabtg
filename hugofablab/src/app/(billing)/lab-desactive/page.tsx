@@ -26,10 +26,10 @@ export default async function DisabledLabPage() {
         <Card className="w-full max-w-xl">
           <CardContent className="p-6 text-center sm:p-9">
             <AlertTriangle className="mx-auto h-10 w-10 text-togo-yellow" />
-            <p className="eyebrow mt-4 text-togo-green dark:text-lime">Accès temporairement suspendu</p>
+            <p className="eyebrow mt-4 text-togo-green dark:text-lime">Lab mis en pause</p>
             <h1 className="mt-3 text-2xl font-extrabold">{lab.name} est en pause</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              La vitrine et l&apos;accès des élèves sont momentanément désactivés. Les comptes, projets, réservations et autres données du lab sont conservés.
+              Le responsable a mis le lab en pause. La vitrine et l&apos;accès des élèves sont désactivés jusqu&apos;à sa réactivation. Les comptes, projets, réservations et autres données sont conservés.
             </p>
             {isManager ? (
               <div className="mt-6 flex flex-wrap justify-center gap-3">

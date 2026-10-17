@@ -20,6 +20,8 @@
   will-change: opacity, transform;
 }
 .js [data-reveal].in { opacity: 1; transform: none; filter: none; }
+.js .landing-hero-copy [data-reveal] { transition-duration: 0.52s; }
+.js .landing-hero-copy .mask-line > span { transition-duration: 0.58s; }
 [data-reveal="down"]  { --reveal-from: translateY(-22px); }
 [data-reveal="left"]  { --reveal-from: translateX(34px); }
 [data-reveal="right"] { --reveal-from: translateX(-34px); }

@@ -16,11 +16,11 @@ export async function createSession(userId: number) {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000);
   await db.insert(sessions).values({ id, userId, expiresAt });
   const store = await cookies();
-  const secure = await isSecureRequest();
+  const secure = process.env.NODE_ENV === "production" || await isSecureRequest();
   store.set(SESSION_COOKIE, id, {
     httpOnly: true,
-    // En HTTPS (aperçu intégré, déploiement public) : SameSite=None + Secure ; en HTTP local : Lax.
-    sameSite: secure ? "none" : "lax",
+    // Lax bloque l'envoi du cookie lors des requêtes POST inter-sites tout en autorisant les retours OAuth.
+    sameSite: "lax",
     secure,
     path: "/",
     expires: expiresAt,

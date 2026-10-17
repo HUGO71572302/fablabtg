@@ -3,7 +3,7 @@
 import { useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import { logoutAction } from "@/actions/auth";
-import { clearOfflineData } from "@/lib/offline-reservations";
+import { clearPrivateOfflinePages } from "@/lib/offline-reservations";
 
 export function OfflineLogoutButton({
   children,
@@ -21,11 +21,15 @@ export function OfflineLogoutButton({
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
+          if (!navigator.onLine) {
+            toast.error("Reconnectez-vous à Internet pour vous déconnecter. Vos demandes en attente seront conservées.");
+            return;
+          }
           try {
-            await clearOfflineData();
+            await clearPrivateOfflinePages();
           } catch (error) {
             console.error("Impossible d’effacer les données hors ligne avant la déconnexion.", error);
-            toast.error("Déconnexion annulée : impossible d’effacer les demandes conservées sur cet appareil.");
+            toast.error("Déconnexion annulée : impossible d’effacer les pages privées conservées sur cet appareil.");
             return;
           }
           await logoutAction();

@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteMachineAction, saveResourceAction, setResourceStatusAction } from "@/actions/admin";
+import { deleteResourceAction, saveResourceAction, setResourceStatusAction } from "@/actions/admin";
 import { ImageInput } from "@/components/ui/image-input";
 import { Modal } from "@/components/ui/modal";
 import { Button, Input, Label, Select, Textarea, cn } from "@/components/ui";
@@ -137,6 +138,9 @@ export function ResourceEditor({ initial, rooms, trigger }: { initial?: Editable
 
 export function ResourceStatusButtons({ id, name, type, status }: { id: number; name: string; type: "salle" | "machine"; status: ResourceStatus }) {
   const [pending, start] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState("");
+  const router = useRouter();
   const set = (s: ResourceStatus) =>
     start(async () => {
       const res = await setResourceStatusAction(id, s);
@@ -144,11 +148,16 @@ export function ResourceStatusButtons({ id, name, type, status }: { id: number; 
       else toast.success(res.success);
     });
   const remove = () => {
-    if (!confirm(`Supprimer définitivement la machine « ${name} » ? Ses réservations, listes d'attente et fermetures liées à cette machine seront également supprimées. Cette action est irréversible.`)) return;
     start(async () => {
-      const res = await deleteMachineAction(id);
-      if (res.error) toast.error(res.error);
-      else toast.success(res.success);
+      const res = await deleteResourceAction(id, confirmationCode);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(res.success);
+        setDeleteOpen(false);
+        setConfirmationCode("");
+        router.refresh();
+      }
     });
   };
   return (
@@ -173,17 +182,41 @@ export function ResourceStatusButtons({ id, name, type, status }: { id: number; 
           {RESOURCE_STATUS_LABEL[s]}
         </button>
       ))}
-      {type === "machine" && (
+      <>
         <button
           type="button"
           disabled={pending}
-          onClick={remove}
+          onClick={() => setDeleteOpen(true)}
           className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-togo-red/30 px-3 py-1.5 text-[13px] font-semibold text-togo-red transition hover:bg-togo-red/10 disabled:opacity-50"
         >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          <Trash2 className="h-3.5 w-3.5" />
           Supprimer
         </button>
-      )}
+        {deleteOpen && (
+          <Modal onClose={() => { if (!pending) { setDeleteOpen(false); setConfirmationCode(""); } }} label={`Confirmer la suppression de ${type === "salle" ? "la salle" : "la machine"} ${name}`} className="max-w-lg">
+            <h2 className="text-xl font-extrabold">Supprimer {type === "salle" ? "la salle" : "la machine"} « {name} » ?</h2>
+            <div role="alert" className="mt-4 rounded-xl border border-togo-yellow/50 bg-togo-yellow/10 p-3 text-sm leading-6">
+              <p className="font-bold text-foreground">Attention : cette suppression est définitive.</p>
+              {type === "machine" ? (
+                <p className="mt-1 text-muted-foreground">Les réservations, listes d’attente, niveaux machine et fermetures associés seront supprimés.</p>
+              ) : (
+                <>
+                  <p className="mt-1 text-muted-foreground">Les réservations, listes d’attente et fermetures associées à cette salle seront supprimées.</p>
+                  <p className="mt-1 text-muted-foreground">Les machines de cette salle resteront dans le lab, sans salle associée.</p>
+                </>
+              )}
+            </div>
+            <label htmlFor={`delete-resource-code-${id}`} className="mt-4 block text-sm font-semibold">Code de confirmation : mot de passe actuel du responsable</label>
+            <input id={`delete-resource-code-${id}`} type="password" autoComplete="current-password" value={confirmationCode} onChange={(event) => setConfirmationCode(event.target.value)} disabled={pending} className="mt-2 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-base" />
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="outline" disabled={pending} onClick={() => { setDeleteOpen(false); setConfirmationCode(""); }}>Annuler</Button>
+              <Button type="button" variant="danger" disabled={pending || !confirmationCode} onClick={remove}>
+                {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Supprimer définitivement
+              </Button>
+            </div>
+          </Modal>
+        )}
+      </>
     </div>
   );
 }

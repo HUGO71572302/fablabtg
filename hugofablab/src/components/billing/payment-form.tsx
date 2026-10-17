@@ -1,14 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
-import { Check, Copy, CreditCard, Loader2, Upload } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { Check, Copy, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { createPaymentRequestAction } from "@/actions/billing";
 import { ImageInput } from "@/components/ui/image-input";
 import { ContactButtons, whatsappNumber } from "@/components/ui/contact";
 import { Alert } from "@/components/auth/auth-forms";
 import { Button, Input, Label, Select, cn } from "@/components/ui";
-import { BILLING_PLANS, PLAN_LIST, formatXof, type PlanId } from "@/lib/billing-shared";
+import { BILLING_PLANS, PURCHASABLE_PLAN_LIST, formatXof, type PlanId } from "@/lib/billing-shared";
 
 export function PaymentForm({
   defaultPlan,
@@ -18,7 +18,7 @@ export function PaymentForm({
   recipient: { tmoney: string; flooz: string; name: string };
 }) {
   const [state, action, pending] = useActionState(createPaymentRequestAction, null);
-  const [plan, setPlan] = useState<PlanId>(defaultPlan);
+  const [plan, setPlan] = useState<PlanId>(BILLING_PLANS[defaultPlan].availableForPurchase ? defaultPlan : "essentiel");
   const [months, setMonths] = useState(1);
   const [provider, setProvider] = useState("tmoney");
   const [copied, setCopied] = useState(false);
@@ -31,14 +31,20 @@ export function PaymentForm({
       <Alert state={state} />
       <div>
         <Label>Votre formule</Label>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {PLAN_LIST.map((p) => (
-            <label key={p.id} className={cn("relative cursor-pointer rounded-[16px] border p-4 transition", plan === p.id ? "border-togo-green bg-togo-green/5 ring-1 ring-togo-green dark:border-lime dark:bg-lime/5" : "border-border hover:bg-muted/50")}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {PURCHASABLE_PLAN_LIST.map((p) => (
+            <label key={p.id} className={cn("relative flex cursor-pointer flex-col rounded-[18px] border p-4 transition focus-within:ring-2 focus-within:ring-togo-green/40", plan === p.id ? "border-togo-green bg-togo-green/5 ring-1 ring-togo-green dark:border-lime dark:bg-lime/5" : "border-border hover:border-togo-green/40 hover:bg-muted/50")}>
               <input type="radio" name="plan" value={p.id} checked={plan === p.id} onChange={() => setPlan(p.id)} className="sr-only" />
-              {plan === p.id && <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full bg-togo-green text-white dark:bg-lime dark:text-forest"><Check className="h-3 w-3" /></span>}
-              <p className="text-[15px] font-extrabold">{p.name}</p>
-              <p className="mt-1 text-[12px] leading-5 text-muted-foreground">{p.tagline}</p>
-              <p className="mt-4 font-display text-[22px] font-extrabold tabular-nums">{formatXof(p.monthlyPrice)}<span className="ml-1 text-[11px] font-medium text-muted-foreground">/ mois</span></p>
+              {plan === p.id && <span className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-togo-green text-white dark:bg-lime dark:text-forest"><Check className="h-3.5 w-3.5" /></span>}
+              <div className="pr-8">
+                <h3 className="text-[17px] font-extrabold tracking-tight">{p.name}</h3>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.09em] text-togo-green dark:text-lime">{p.tagline}</p>
+              </div>
+              <p className="mt-3 text-[13px] leading-5 text-muted-foreground">{p.description}</p>
+              <ul className="mt-3 flex-1 space-y-1.5 border-t border-border/70 pt-3 text-[12px] leading-[1.35rem] text-foreground/80">
+                {p.features.map((feature) => <li key={feature} className="flex gap-2"><Check className="mt-1 h-3 w-3 shrink-0 text-togo-green dark:text-lime" /><span>{feature}</span></li>)}
+              </ul>
+              <p className="mt-4 border-t border-border/70 pt-3 font-display text-[23px] font-extrabold tabular-nums tracking-tight">{formatXof(p.monthlyPrice)}<span className="ml-1 font-sans text-[11px] font-semibold tracking-normal text-muted-foreground">/ mois</span></p>
             </label>
           ))}
         </div>
@@ -72,8 +78,8 @@ export function PaymentForm({
         <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="transactionRef">Référence Mobile Money</Label><Input id="transactionRef" name="transactionRef" required placeholder="Ex. TM123456789" /></div><div><Label htmlFor="payerPhone">Numéro ayant payé</Label><Input id="payerPhone" name="payerPhone" type="tel" placeholder="Ex. 90 00 00 00" /></div></div>
         <div className="mt-4"><ImageInput name="proof" label="Capture / preuve de paiement (facultatif mais recommandé)" hint="La capture est compressée avant envoi. Elle accélère la validation." aspect="aspect-[16/7]" /></div>
       </div>
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Envoyer ma demande de réactivation</Button>
-      <p className="text-center text-[12px] leading-5 text-muted-foreground">Réactivation gratuite : aucune API payante n’est utilisée. Le responsable de plateforme vérifie votre référence Mobile Money et active le lab en un clic.</p>
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Envoyer ma demande de paiement</Button>
+      <p className="text-center text-[12px] leading-5 text-muted-foreground">Envoyez votre référence une seule fois. Le responsable de la plateforme vérifie le paiement et active la formule. Si votre accès est arrivé à expiration, un délai temporaire de 3 jours est accordé pendant la vérification.</p>
     </form>
   );
 }

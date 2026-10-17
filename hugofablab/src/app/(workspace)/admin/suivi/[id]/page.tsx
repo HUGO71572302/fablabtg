@@ -8,6 +8,7 @@ import { Badge, Card, CardContent, CardHeader, EmptyState, LevelBadge, PageHeade
 import { db } from "@/db";
 import { reservations, resources, users } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { planIncludes } from "@/lib/billing";
 import { LEVEL_LABEL, classLabel } from "@/lib/labels";
 import { assignSheetNumber, classRank, gradesStats, listGrades } from "@/lib/pedagogy";
 
@@ -16,9 +17,10 @@ export const dynamic = "force-dynamic";
 
 export default async function PedagogyLearnerPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
+  const canManageGrades = await planIncludes(admin.labId, "plus");
   const { id } = await params;
   const [learner] = await db.select().from(users).where(eq(users.id, Number(id))).limit(1);
-  if (!learner || learner.labId !== admin.labId) notFound();
+  if (!learner || learner.labId !== admin.labId || learner.role !== "student") notFound();
 
   const sheetNumber = await assignSheetNumber(learner);
   const [rank, stats, grades, [{ n: resaCount }], [{ n: present }]] = await Promise.all([
@@ -39,7 +41,7 @@ export default async function PedagogyLearnerPage({ params }: { params: Promise<
         title={learner.name}
         subtitle={`${learner.classLevel ? classLabel(learner.classLevel, learner.organisation) : learner.organisation ?? "Sans classe"} · identifiant ${learner.username ?? "—"} · ${LEVEL_LABEL[learner.autonomyLevel]}`}
         action={
-          <a href={`/print/apprenant/${learner.id}`} target="_blank" rel="noreferrer" className={buttonClass("primary", "md")}>
+          <a href={`/print/apprenant/${learner.id}`} className={buttonClass("primary", "md")}>
             <Printer className="h-4 w-4" /> Imprimer la fiche
           </a>
         }
@@ -74,16 +76,16 @@ export default async function PedagogyLearnerPage({ params }: { params: Promise<
                     <th className="py-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody>{grades.map((g) => <GradeRow key={g.id} g={g} onDelete />)}</tbody>
+                <tbody>{grades.map((g) => <GradeRow key={g.id} g={g} onDelete={canManageGrades} />)}</tbody>
               </table>
             )}
           </CardContent>
         </Card>
 
         <Card className="h-fit">
-          <CardHeader eyebrow="Nouvelle évaluation" title="Ajouter au suivi" subtitle="Une note sur n, ou une observation écrite (comportement, régularité, progrès)." />
+          <CardHeader eyebrow={canManageGrades ? "Nouvelle évaluation" : "Formule Plus"} title={canManageGrades ? "Ajouter au suivi" : "Débloquer le suivi complet"} subtitle={canManageGrades ? "Une note sur n, ou une observation écrite (comportement, régularité, progrès)." : "La saisie des notes, observations et leur suppression sont incluses dans les formules Plus et Réseau."} />
           <CardContent>
-            <GradeForm learnerId={learner.id} />
+            {canManageGrades ? <GradeForm learnerId={learner.id} /> : <Link href="/abonnement?reason=plan-plus" className={buttonClass("primary", "md")}>Voir les formules</Link>}
             <div className="mt-5 flex items-start gap-2 rounded-xl bg-muted/60 p-3 text-[13px] leading-6 text-muted-foreground">
               <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-togo-green dark:text-lime" />
               <span>

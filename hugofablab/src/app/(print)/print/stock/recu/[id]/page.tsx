@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PrintBar } from "@/components/print/print-bar";
 import { PrintHeader, PrintSection, PrintSignatures, printDate } from "@/components/print/print-parts";
 import { requireAdmin } from "@/lib/auth";
+import { planIncludes } from "@/lib/billing";
 import { getLab } from "@/lib/labs";
 import { getReceipt, movementRef, MOVEMENT_LABEL, STOCK_CATEGORY_LABEL } from "@/lib/stock";
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PrintReceipt({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
+  if (!(await planIncludes(admin.labId, "plus"))) redirect("/abonnement?reason=plan-plus");
   const { id } = await params;
   const [lab, r] = await Promise.all([getLab(admin.labId), getReceipt(admin.labId, Number(id))]);
   if (!lab || !r) notFound();

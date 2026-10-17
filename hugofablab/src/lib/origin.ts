@@ -1,6 +1,16 @@
 import { headers } from "next/headers";
 
-const ENV_ORIGIN = () => (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/+$/, "");
+const ENV_ORIGIN = () => {
+  const configured = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+  if (!configured) return "";
+  try { return new URL(configured.includes("://") ? configured : `https://${configured}`).origin; } catch { return ""; }
+};
+
+function deploymentOrigin() {
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (!host) return "";
+  try { return new URL(host.includes("://") ? host : `https://${host}`).origin; } catch { return ""; }
+}
 
 function fromHeaders(get: (k: string) => string | null): string | null {
   const host = (get("x-forwarded-host") ?? get("host") ?? "").split(",")[0].trim();
@@ -16,20 +26,22 @@ function fromHeaders(get: (k: string) => string | null): string | null {
  * Priorité : hôte public réel de la requête (x-forwarded-host / host) → APP_URL → URL brute.
  */
 export function publicOriginFromRequest(req: Request): string {
-  const fromReq = fromHeaders((k) => req.headers.get(k));
   const env = ENV_ORIGIN();
-  if (fromReq && !/^https?:\/\/(localhost|127\.|0\.0\.0\.0)/.test(fromReq)) return fromReq;
   if (env) return env;
+  const deployment = deploymentOrigin();
+  if (deployment) return deployment;
+  const fromReq = fromHeaders((k) => req.headers.get(k));
   return fromReq ?? new URL(req.url).origin;
 }
 
 /** Même logique, utilisable dans les Server Components / Server Actions. */
 export async function publicOrigin(): Promise<string> {
+  const env = ENV_ORIGIN();
+  if (env) return env;
+  const deployment = deploymentOrigin();
+  if (deployment) return deployment;
   const h = await headers();
   const fromReq = fromHeaders((k) => h.get(k));
-  const env = ENV_ORIGIN();
-  if (fromReq && !/^https?:\/\/(localhost|127\.|0\.0\.0\.0)/.test(fromReq)) return fromReq;
-  if (env) return env;
   return fromReq ?? "http://localhost:3000";
 }
 

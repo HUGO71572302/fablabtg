@@ -1,16 +1,48 @@
 "use server";
 
+import { createHash } from "crypto";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, count, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { labs, users } from "@/db/schema";
+import { labs, sessions, users } from "@/db/schema";
 import { createSession, destroySession } from "@/lib/auth";
+import { getSubscriptionAccess } from "@/lib/billing";
 import { assignSheetNumber } from "@/lib/pedagogy";
 import { CLASS_LEVELS } from "@/lib/labels";
-import { hashPassword, verifyPassword } from "@/lib/password";
+import { hashPassword, passwordIssue, verifyPassword } from "@/lib/password";
 import { ensureSeeded } from "@/db/seed";
+import { notifyAdmins } from "@/lib/reservations";
 
 export type ActionState = { error?: string; success?: string } | null;
+
+/** Réinitialisation courte, à usage unique, après vérification de l'identité Google du responsable. */
+export async function resetManagerPasswordAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  const store = await cookies();
+  const cookie = store.get("hf_password_reset")?.value ?? "";
+  const parsed = /^(\d{13})\.([a-f0-9]{64})$/.exec(cookie);
+  if (!parsed || Number(parsed[1]) <= Date.now()) return { error: "La vérification Google a expiré. Recommencez la procédure." };
+
+  const password = String(fd.get("password") ?? "");
+  const confirmPassword = String(fd.get("confirmPassword") ?? "");
+  const issue = passwordIssue(password);
+  if (issue) return { error: issue };
+  if (password !== confirmPassword) return { error: "La confirmation du mot de passe ne correspond pas." };
+
+  const tokenHash = createHash("sha256").update(parsed[2]).digest("hex");
+  const challenge = `pwdreset:${parsed[1]}:${tokenHash}`;
+  const [match] = await db.select({ id: users.id }).from(users).where(and(eq(users.role, "fabmanager"), eq(users.verificationCode, challenge))).limit(1);
+  if (!match) {
+    store.delete("hf_password_reset");
+    return { error: "Le lien de récupération a expiré ou a déjà été utilisé. Recommencez avec Google." };
+  }
+
+  const [updated] = await db.update(users).set({ passwordHash: hashPassword(password), verificationCode: null, failedAttempts: 0, lockedUntil: null }).where(and(eq(users.id, match.id), eq(users.verificationCode, challenge))).returning({ id: users.id });
+  if (!updated) return { error: "La demande a déjà été utilisée. Recommencez la procédure." };
+  await db.delete(sessions).where(eq(sessions.userId, match.id));
+  store.delete("hf_password_reset");
+  return { success: "Votre mot de passe a été changé. Vous pouvez maintenant vous connecter." };
+}
 
 const MAX_ATTEMPTS = 8;
 const LOCK_MINUTES = 15;
@@ -25,6 +57,7 @@ export async function loginAction(_: ActionState, fd: FormData): Promise<ActionS
   const rawIdentifier = String(fd.get("identifier") ?? "").trim();
   const identifier = rawIdentifier.toLowerCase();
   const secret = String(fd.get("secret") ?? "");
+  if (rawIdentifier.length > 200 || secret.length > 1024) return { error: "Identifiant ou code trop long." };
   if (!identifier || !secret) return { error: "Saisissez votre identifiant (ou e-mail / téléphone) et votre code." };
 
   const phoneDigits = rawIdentifier.replace(/\D/g, "");
@@ -90,13 +123,16 @@ export async function loginAction(_: ActionState, fd: FormData): Promise<ActionS
   redirect(matchedUser.role === "fabmanager" ? "/admin" : "/app");
 }
 
-/** Inscription élève : identifiant + code PIN + numéro de téléphone (aucun e-mail obligatoire). */
-export async function registerStudentAction(_: ActionState, fd: FormData): Promise<ActionState> {
+/** Inscription d'un élève ou d'un utilisateur externe avec identifiant, code PIN et téléphone. */
+export async function registerMemberAction(_: ActionState, fd: FormData): Promise<ActionState> {
   await ensureSeeded();
   const labId = Number(fd.get("labId"));
   const name = String(fd.get("name") ?? "").trim();
-  const classLevel = String(fd.get("classLevel") ?? "");
-  const section = String(fd.get("section") ?? "").trim() || null;
+  const role = fd.get("accountType") === "external" ? "external" : "student";
+  const classLevel = role === "student" ? String(fd.get("classLevel") ?? "") : "";
+  const organisation = role === "student"
+    ? String(fd.get("section") ?? "").trim() || null
+    : String(fd.get("organisation") ?? "").trim().slice(0, 80) || null;
   const username = String(fd.get("username") ?? "").trim().toLowerCase();
   const pin = String(fd.get("pin") ?? "").trim();
   const pinConfirm = String(fd.get("pinConfirm") ?? "").trim();
@@ -104,8 +140,14 @@ export async function registerStudentAction(_: ActionState, fd: FormData): Promi
 
   const [lab] = await db.select({ id: labs.id }).from(labs).where(and(eq(labs.id, labId), eq(labs.active, true))).limit(1);
   if (!lab) return { error: "Choisissez le FabLab de votre établissement." };
+  const access = await getSubscriptionAccess(labId);
+  if (!access.access) return { error: "Les inscriptions sont suspendues. Le responsable du FabLab doit renouveler son abonnement." };
+  if (access.phase !== "trial" && access.plan === "essentiel") {
+    const [{ total }] = await db.select({ total: count() }).from(users).where(and(eq(users.labId, labId), eq(users.role, "student")));
+    if (total >= 150) return { error: "La formule Essentiel est limitée à 150 apprenants. Le responsable peut passer à la formule Plus pour continuer les inscriptions." };
+  }
   if (name.length < 2) return { error: "Indiquez votre nom et prénom complets." };
-  if (!CLASS_LEVELS.some((c) => c.value === classLevel)) return { error: "Choisissez votre classe (de la 6e à la Terminale)." };
+  if (role === "student" && !CLASS_LEVELS.some((c) => c.value === classLevel)) return { error: "Choisissez votre classe (de la 6e à la Terminale)." };
   if (!USERNAME_RE.test(username)) return { error: "Identifiant : 3 à 30 caractères (lettres minuscules, chiffres, point, tiret), sans espace." };
   if (!/^\d{4,6}$/.test(pin)) return { error: "Le code PIN doit comporter 4 à 6 chiffres." };
   if (/^(\d)\1+$/.test(pin) || ["1234", "12345", "123456", "0123", "4321"].includes(pin)) return { error: "Code PIN trop simple : évitez 1234, 0000, etc." };
@@ -121,18 +163,23 @@ export async function registerStudentAction(_: ActionState, fd: FormData): Promi
       name,
       username,
       passwordHash: hashPassword(pin),
-      role: "student",
+      role,
       labId,
-      classLevel,
-      organisation: section,
+      classLevel: role === "student" ? classLevel : null,
+      organisation,
       phone,
       emailVerified: true,
-      active: true,
+      active: role === "student",
     })
     .returning({ id: users.id });
 
-  // N° de fiche de classe (6E-001, TLE-D2-003) attribué dès l'inscription.
-  await assignSheetNumber({ id: u.id, labId, classLevel, organisation: section, sheetNumber: null });
+  if (role === "student") {
+    // N° de fiche de classe (6E-001, TLE-D2-003) attribué dès l'inscription.
+    await assignSheetNumber({ id: u.id, labId, classLevel, organisation, sheetNumber: null });
+  } else {
+    await notifyAdmins(labId, "info", "Demande d’accès externe", `${name}${organisation ? ` · ${organisation}` : ""} demande à rejoindre le FabLab. Activez son compte depuis « Membres du lab » après vérification.`);
+    return { success: "Votre demande a été envoyée au responsable du FabLab. Vous pourrez vous connecter après l’activation du compte." };
+  }
 
   await createSession(u.id);
   redirect("/app?bienvenue=1");

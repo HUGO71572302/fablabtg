@@ -12,7 +12,7 @@ export default function OfflinePage() {
         <WifiOff className="mx-auto mt-6 h-12 w-12 text-togo-red" />
         <h1 className="mt-3 text-2xl font-bold">Vous êtes hors ligne</h1>
         <p className="mt-2 text-base text-muted-foreground">
-          Impossible de joindre le serveur du FabLab. Une demande ou un pointage mis en attente depuis une page déjà ouverte sera vérifié au retour du réseau. Les autres données nécessitent une connexion.
+          Les pages déjà consultées peuvent rester accessibles avec leurs dernières données enregistrées. Les réservations et pointages conservés sur cet appareil seront vérifiés au retour du réseau ; ils ne sont pas confirmés avant cette synchronisation.
         </p>
         <a href="/app" className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-togo-green px-6 text-base font-medium text-white">Réessayer</a>
         <p className="mt-6 text-sm text-muted-foreground">{CONTACT.place} · {CONTACT.phone}</p>

@@ -29,7 +29,7 @@ export const pool =
     idleTimeoutMillis: serverless ? 8_000 : 30_000,
     connectionTimeoutMillis: 10_000,
     allowExitOnIdle: true,
-    ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...(needsSsl ? { ssl: { rejectUnauthorized: true } } : {}),
   });
 
 // Le cache global vaut aussi en production : il permet à une invocation Vercel réutilisée de ne pas rouvrir de pool.

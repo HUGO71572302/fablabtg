@@ -20,7 +20,7 @@ export default async function PrintLearnerSheet({ params }: { params: Promise<{ 
   const current = await requireUser();
   const { id } = await params;
   const [student] = await db.select().from(users).where(eq(users.id, Number(id))).limit(1);
-  if (!student || student.labId == null) notFound();
+  if (!student || student.labId == null || student.role !== "student") notFound();
   const isSelf = current.id === student.id;
   const isManager = current.role === "fabmanager" && current.labId === student.labId;
   if (!isSelf && !isManager) notFound();

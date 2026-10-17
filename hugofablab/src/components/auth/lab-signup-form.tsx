@@ -75,12 +75,12 @@ export function LabSignupForm({ requireCode }: { requireCode: boolean }) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="password">Mot de passe (8 caractères min.)</Label>
-                <SecretInput name="password" autoComplete="new-password" minLength={8} />
+                <Label htmlFor="password">Mot de passe (10 caractères min., avec majuscule, minuscule et chiffre)</Label>
+                <SecretInput name="password" autoComplete="new-password" minLength={10} />
               </div>
               <div>
                 <Label htmlFor="confirm">Confirmer</Label>
-                <SecretInput name="confirm" autoComplete="new-password" minLength={8} />
+                <SecretInput name="confirm" autoComplete="new-password" minLength={10} />
               </div>
             </div>
           </div>

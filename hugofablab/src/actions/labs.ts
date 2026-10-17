@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { labSettings, labs, media, users } from "@/db/schema";
 import { createSession, requireAdmin, requireBillingUser } from "@/lib/auth";
 import { uniqueSlug, uniqueUsername } from "@/lib/labs";
 import { saveImage } from "@/lib/media";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, passwordIssue, verifyPassword } from "@/lib/password";
 import { ensureSubscription } from "@/lib/billing";
 import type { ActionState } from "./auth";
 
@@ -16,6 +16,47 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function field(fd: FormData, k: string) {
   return String(fd.get(k) ?? "").trim();
+}
+
+/** Mise à jour des informations personnelles et des identifiants du responsable connecté. */
+export async function updateManagerProfileAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const name = field(fd, "name");
+  const username = field(fd, "username").toLowerCase();
+  const phone = field(fd, "phone");
+  const currentPassword = String(fd.get("currentPassword") ?? "");
+  const newPassword = String(fd.get("newPassword") ?? "");
+  const confirmPassword = String(fd.get("confirmPassword") ?? "");
+
+  if (name.length < 2 || name.length > 100) return { error: "Le nom doit contenir entre 2 et 100 caractères." };
+  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username)) return { error: "L’identifiant doit contenir 3 à 30 caractères : lettres minuscules, chiffres, point, tiret ou souligné." };
+  if (phone.length > 30) return { error: "Le numéro de téléphone est trop long." };
+
+  const update: Partial<typeof users.$inferInsert> = { name, username, phone: phone || null };
+  if (newPassword || confirmPassword || currentPassword) {
+    if (!currentPassword || !verifyPassword(currentPassword, admin.passwordHash)) return { error: "Le mot de passe actuel est incorrect." };
+    const issue = passwordIssue(newPassword);
+    if (issue) return { error: issue };
+    if (newPassword !== confirmPassword) return { error: "La confirmation du nouveau mot de passe ne correspond pas." };
+    update.passwordHash = hashPassword(newPassword);
+    update.failedAttempts = 0;
+    update.lockedUntil = null;
+  }
+
+  try {
+    const [duplicate] = await db.select({ id: users.id }).from(users).where(and(eq(sql`lower(${users.username})`, username), ne(users.id, admin.id))).limit(1);
+    if (duplicate) return { error: "Cet identifiant est déjà utilisé. Choisissez-en un autre." };
+
+    const [updated] = await db.update(users).set(update).where(and(eq(users.id, admin.id), eq(users.labId, admin.labId), eq(users.role, "fabmanager"))).returning({ id: users.id });
+    if (!updated) return { error: "Votre compte responsable n’a pas été retrouvé. Reconnectez-vous puis réessayez." };
+    revalidatePath("/", "layout");
+    return { success: "Votre profil a été mis à jour." };
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+    if (code === "23505") return { error: "Cet identifiant est déjà utilisé. Choisissez-en un autre." };
+    console.error("[manager-profile] update failed", error instanceof Error ? error.message : "Unknown error");
+    return { error: "Impossible d’enregistrer le profil pour le moment. Réessayez dans quelques instants." };
+  }
 }
 
 /** Inscription d'un responsable : crée son FabLab (identité) et son compte responsable, rattaché à ce lab. */
@@ -34,7 +75,8 @@ export async function registerLabAction(_: ActionState, fd: FormData): Promise<A
   if (managerName.length < 2) return { error: "Indiquez votre nom complet." };
   if (!EMAIL_RE.test(email)) return { error: "Adresse e-mail valide requise." };
   if (phone.replace(/\D/g, "").length < 8) return { error: "Numéro de téléphone valide requis (8 chiffres minimum)." };
-  if (password.length < 6) return { error: "Mot de passe : 6 caractères minimum (8 conseillés)." };
+  const passwordError = passwordIssue(password);
+  if (passwordError) return { error: passwordError };
   if (password !== confirm) return { error: "Les deux mots de passe ne correspondent pas." };
   if (name.length < 2) return { error: "Donnez un nom à votre FabLab." };
   if (schoolName.length < 2) return { error: "Indiquez le nom de votre établissement." };
@@ -45,8 +87,12 @@ export async function registerLabAction(_: ActionState, fd: FormData): Promise<A
     .where(eq(sql`lower(${users.email})`, email))
     .limit(1);
 
-  if (existing && existing.role === "fabmanager") {
-    return { error: "Un compte responsable existe déjà avec cet e-mail. Connectez-vous sur la page de connexion." };
+  const platformEmails = (process.env.PLATFORM_ADMIN_EMAILS ?? "hkabrame@gmail.com").split(",").map((value) => value.trim().toLowerCase());
+  if (platformEmails.includes(email)) return { error: "Cette adresse est réservée à l’administration de la plateforme." };
+  if (existing) {
+    return { error: existing.role === "fabmanager"
+      ? "Un compte responsable existe déjà avec cet e-mail. Connectez-vous sur la page de connexion."
+      : "Un compte existe déjà avec cet e-mail. Connectez-vous ou utilisez une autre adresse pour créer un lab." };
   }
 
   const slug = await uniqueSlug(name);
@@ -83,50 +129,27 @@ export async function registerLabAction(_: ActionState, fd: FormData): Promise<A
     await db.update(labs).set({ logoId, coverId, managerPhotoId }).where(eq(labs.id, lab.id));
   }
   await db.insert(labSettings).values({ labId: lab.id }).onConflictDoNothing();
-  // Essai gratuit de 10 minutes : le minuteur démarre au moment exact de la création du lab.
+  // Essai gratuit de 30 jours : le minuteur démarre au moment exact de la création du lab.
   await ensureSubscription(lab.id);
 
-  const username = existing?.username ?? (await uniqueUsername(email.split("@")[0] || managerName));
-
-  let managerId: number;
-  if (existing) {
-    await db
-      .update(users)
-      .set({
-        name: managerName,
-        username,
-        phone,
-        passwordHash: hashPassword(password),
-        role: "fabmanager",
-        autonomyLevel: "expert",
-        organisation: "Responsable du FabLab",
-        labId: lab.id,
-        emailVerified: true,
-        active: true,
-        failedAttempts: 0,
-        lockedUntil: null,
-      })
-      .where(eq(users.id, existing.id));
-    managerId = existing.id;
-  } else {
-    const [created] = await db
-      .insert(users)
-      .values({
-        name: managerName,
-        email,
-        username,
-        phone,
-        passwordHash: hashPassword(password),
-        role: "fabmanager",
-        autonomyLevel: "expert",
-        organisation: "Responsable du FabLab",
-        labId: lab.id,
-        emailVerified: true,
-        active: true,
-      })
-      .returning({ id: users.id });
-    managerId = created.id;
-  }
+  const username = await uniqueUsername(email.split("@")[0] || managerName);
+  const [created] = await db
+    .insert(users)
+    .values({
+      name: managerName,
+      email,
+      username,
+      phone,
+      passwordHash: hashPassword(password),
+      role: "fabmanager",
+      autonomyLevel: "expert",
+      organisation: "Responsable du FabLab",
+      labId: lab.id,
+      emailVerified: true,
+      active: true,
+    })
+    .returning({ id: users.id });
+  const managerId = created.id;
 
   await createSession(managerId);
   revalidatePath("/", "layout");

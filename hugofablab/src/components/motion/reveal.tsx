@@ -14,13 +14,14 @@ type Props = HTMLAttributes<HTMLElement> & {
   delay?: number;
   /** Index de stagger : chaque unité ajoute 85 ms. */
   index?: number;
-  /** Rejouer l'animation à chaque entrée dans le viewport. */
+  /** Rejouer l'animation à chaque entrée dans le viewport (activé par défaut). */
   repeat?: boolean;
   children?: ReactNode;
 };
 
 /**
- * Élément révélé à l'entrée dans le viewport.
+ * Élément révélé à l'entrée dans le viewport ; par défaut, il se réanime après en être sorti,
+ * ce qui permet de jouer les animations en descendant comme en remontant.
  * - Sans JavaScript : tout reste visible (les styles masquants ne s'appliquent que sous `html.js`).
  * - `prefers-reduced-motion` : aucune animation.
  * - Variantes : up / down / left / right / scale / blur / clip (rideau) / line (trait) / group (déclencheur pour les enfants `.mask-line`).
@@ -28,7 +29,7 @@ type Props = HTMLAttributes<HTMLElement> & {
  * Détail d'implémentation : pour `clip` et `line`, le masquage est porté par un calque interne (`.reveal-layer`) et non par
  * l'hôte observé. Un élément clippé à zéro a une boîte d'intersection vide et ne serait jamais détecté par l'IntersectionObserver.
  */
-export function Reveal({ as: Tag = "div", variant = "up", delay = 0, index, repeat = false, children, style, ...rest }: Props) {
+export function Reveal({ as: Tag = "div", variant = "up", delay = 0, index, repeat = true, children, style, ...rest }: Props) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const el = ref.current;

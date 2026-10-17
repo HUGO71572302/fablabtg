@@ -22,8 +22,20 @@ const getServerOnlineSnapshot = () => true;
 export function PwaSetup() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
+  const [offlineNoticeVisible, setOfflineNoticeVisible] = useState(false);
   const ios = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
   const offline = !useSyncExternalStore(subscribeOnline, getOnlineSnapshot, getServerOnlineSnapshot);
+
+  useEffect(() => {
+    if (!offline) {
+      setOfflineNoticeVisible(false);
+      return;
+    }
+
+    setOfflineNoticeVisible(true);
+    const timeout = window.setTimeout(() => setOfflineNoticeVisible(false), 7000);
+    return () => window.clearTimeout(timeout);
+  }, [offline]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -66,13 +78,16 @@ export function PwaSetup() {
 
   return (
     <>
-      {offline && (
-        <div role="status" className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-xl items-start gap-3 rounded-2xl border border-amber-500/40 bg-card p-4 shadow-2xl">
-          <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <p className="text-sm">
-            <span className="font-semibold">Mode hors connexion.</span>{" "}
-            Les demandes de réservation et les pointages ouverts peuvent rester en attente sur cet appareil ; ils ne sont pas confirmés avant validation en ligne. Le reste nécessite Internet.
+      {offline && offlineNoticeVisible && (
+        <div role="status" className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-xl items-start gap-2 rounded-2xl border border-amber-500/40 bg-card px-3 py-2.5 shadow-xl">
+          <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm leading-5">
+            <span className="font-semibold">Hors connexion.</span>{" "}
+            Les données peuvent être anciennes. Les réservations et pointages en attente seront vérifiés au retour d’Internet.
           </p>
+          <button type="button" onClick={() => setOfflineNoticeVisible(false)} aria-label="Fermer le message hors connexion" className="-mr-1 -mt-1 rounded-lg p-1 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
       {visible && (

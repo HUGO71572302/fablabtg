@@ -12,7 +12,12 @@ export async function GET(req: Request) {
   if (!(await isLabActive(user.labId))) return new Response("Lab désactivé.", { status: 403 });
   const params = Object.fromEntries(new URL(req.url).searchParams);
   const rows = await listJournal({ ...journalFilter(user.labId, params), limit: 10000 });
-  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const esc = (v: unknown) => {
+    const value = String(v ?? "");
+    // Prevent user-controlled labels, notes, and beneficiaries from becoming Excel formulas.
+    const safe = typeof v === "number" || !/^[\u0000-\u0020]*[=+\-@]/.test(value) ? value : `'${value}`;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   const header = ["Référence", "Date", "Heure", "Article", "Catégorie", "Type", "Quantité", "Unité", "Remis à", "Enregistré par", "Motif"];
   const body = rows.map((r) => {
     const d = new Date(r.createdAt);

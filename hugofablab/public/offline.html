@@ -13,7 +13,9 @@
       .signal { margin: 1.5rem 0 .5rem; color: #c33a32; font-size: 2rem; }
       h1 { margin: .5rem 0; font-size: 1.6rem; }
       p { color: #5d685d; line-height: 1.6; }
-      button { min-height: 2.75rem; margin-top: 1rem; padding: .65rem 1.25rem; border: 0; border-radius: .75rem; background: #176344; color: white; font: inherit; font-weight: 650; cursor: pointer; }
+      button, .link { min-height: 2.75rem; margin-top: 1rem; padding: .65rem 1.25rem; border: 0; border-radius: .75rem; background: #176344; color: white; font: inherit; font-weight: 650; cursor: pointer; text-decoration: none; }
+      nav { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem; margin-top: 1rem; }
+      nav .link { display: inline-flex; align-items: center; justify-content: center; min-height: 2.5rem; margin: 0; padding: .55rem .8rem; font-size: .9rem; }
       #network-status { min-height: 1.5em; font-size: .9rem; }
       @media (prefers-color-scheme: dark) {
         body { background: #101a14; color: #e8f0e7; }
@@ -27,7 +29,14 @@
       <div class="brand">HUGO FABLAB</div>
       <div class="signal" aria-hidden="true">⌁</div>
       <h1>Vous êtes hors ligne</h1>
-      <p>Le formulaire de réservation déjà ouvert peut conserver une demande en attente sur cet appareil, mais aucune place n’est confirmée avant validation en ligne. Le stock et les autres données nécessitent Internet.</p>
+      <p>Les écrans que vous avez déjà consultés peuvent être disponibles avec leurs dernières données enregistrées. Ces informations peuvent être anciennes. Une réservation ou un pointage hors ligne reste en attente : il ne sera confirmé qu’après vérification en ligne.</p>
+      <nav aria-label="Ouvrir un écran enregistré sur cet appareil">
+        <a class="link" href="/app">Accueil</a>
+        <a class="link" href="/app/calendrier">Calendrier</a>
+        <a class="link" href="/app/reserver">Réserver</a>
+        <a class="link" href="/app/reservations">Mes réservations</a>
+        <a class="link" href="/admin/reservations">Pointages</a>
+      </nav>
       <p id="network-status" role="status">Vérifiez votre Wi-Fi ou vos données mobiles, puis réessayez.</p>
       <button type="button" onclick="location.reload()">Réessayer</button>
     </main>

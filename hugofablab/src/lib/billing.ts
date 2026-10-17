@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { labSubscriptions, labs, paymentRequests, users, type LabSubscription } from "@/db/schema";
-import { BILLING_PLANS, PLAN_LIST, TRIAL_DURATION_MINUTES, type PlanId, type SubscriptionPhase, validPlan } from "@/lib/billing-shared";
+import { BILLING_PLANS, PLAN_LIST, PENDING_GRACE_PERIOD_DAYS, TRIAL_DURATION_MINUTES, type PlanId, type SubscriptionPhase, validPlan } from "@/lib/billing-shared";
 
 export * from "@/lib/billing-shared";
 
@@ -9,6 +9,7 @@ export type SubscriptionAccess = {
   subscription: LabSubscription;
   phase: SubscriptionPhase;
   access: boolean;
+  exempt: boolean;
   plan: PlanId;
   endsAt: Date;
   remainingSeconds: number;
@@ -16,7 +17,7 @@ export type SubscriptionAccess = {
 
 const trialEnd = () => new Date(Date.now() + TRIAL_DURATION_MINUTES * 60_000);
 
-/** Crée l'essai de 10 min si le lab n'a encore aucun abonnement. */
+/** Crée l'essai gratuit de 30 jours si le lab n'a encore aucun abonnement. */
 export async function ensureSubscription(labId: number): Promise<LabSubscription> {
   const [found] = await db.select().from(labSubscriptions).where(eq(labSubscriptions.labId, labId)).limit(1);
   if (found) return found;
@@ -29,11 +30,26 @@ export async function getSubscriptionAccess(labId: number): Promise<Subscription
   const subscription = await ensureSubscription(labId);
   const now = Date.now();
   const plan = validPlan(subscription.plan) ? subscription.plan : "essentiel";
+  const managers = await db.select({ email: users.email, role: users.role }).from(users).where(and(eq(users.labId, labId), eq(users.role, "fabmanager")));
+  const exempt = await Promise.all(managers.map(isPlatformAdmin)).then((results) => results.some(Boolean));
+  if (exempt) {
+    return { subscription, phase: "active", access: true, exempt: true, plan: "plus", endsAt: subscription.activeUntil ?? subscription.trialEndsAt, remainingSeconds: 0 };
+  }
   const trialValid = subscription.status === "trial" && subscription.trialEndsAt.getTime() > now;
   const paidValid = subscription.status === "active" && Boolean(subscription.activeUntil) && subscription.activeUntil!.getTime() > now;
+  const pendingGraceEnd = subscription.updatedAt.getTime() + PENDING_GRACE_PERIOD_DAYS * 86400000;
+  const pendingGraceValid = subscription.status === "pending" && pendingGraceEnd > now;
   const phase: SubscriptionPhase = trialValid ? "trial" : paidValid ? "active" : subscription.status === "pending" ? "pending" : subscription.status === "suspended" ? "suspended" : "expired";
   const endsAt = phase === "trial" ? subscription.trialEndsAt : subscription.activeUntil ?? subscription.trialEndsAt;
-  return { subscription, phase, access: phase === "trial" || phase === "active", plan, endsAt, remainingSeconds: Math.max(0, Math.floor((endsAt.getTime() - now) / 1000)) };
+  return { subscription, phase, access: phase === "trial" || phase === "active" || pendingGraceValid, exempt: false, plan, endsAt: pendingGraceValid ? new Date(pendingGraceEnd) : endsAt, remainingSeconds: Math.max(0, Math.floor(((pendingGraceValid ? pendingGraceEnd : endsAt.getTime()) - now) / 1000)) };
+}
+
+/** L'essai inclut les fonctions Plus ; les formules Plus et Réseau les gardent ensuite. */
+export async function planIncludes(labId: number, minimum: "plus"): Promise<boolean> {
+  const access = await getSubscriptionAccess(labId);
+  if (access.exempt) return true;
+  if (access.phase === "trial") return true;
+  return access.access && (access.plan === "plus" || access.plan === "reseau");
 }
 
 export async function listLabPayments(labId: number) {

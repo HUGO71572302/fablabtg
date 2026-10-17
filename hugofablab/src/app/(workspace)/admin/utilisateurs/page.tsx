@@ -11,12 +11,13 @@ import { fmtDateCompact } from "@/lib/dates";
 import { CLASS_LEVELS, classLabel } from "@/lib/labels";
 import { listResourcesWithRooms } from "@/lib/reservations";
 
-export const metadata: Metadata = { title: "Élèves" };
+export const metadata: Metadata = { title: "Membres du lab" };
 export const dynamic = "force-dynamic";
 
-export default async function UsersPage({ searchParams }: { searchParams: Promise<{ classe?: string; q?: string }> }) {
+export default async function UsersPage({ searchParams }: { searchParams: Promise<{ classe?: string; q?: string; type?: string }> }) {
   const admin = await requireAdmin();
-  const { classe, q } = await searchParams;
+  const { classe, q, type: rawType } = await searchParams;
+  const type = rawType === "student" || rawType === "external" ? rawType : "";
   const [list, allResources] = await Promise.all([
     db.select().from(users).where(eq(users.labId, admin.labId)).orderBy(asc(users.name)),
     listResourcesWithRooms(admin.labId),
@@ -36,17 +37,26 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const machines = allResources.filter((r) => r.type === "machine" && r.status !== "desactivee").map((m) => ({ id: m.id, name: m.name, requiredLevel: m.requiredLevel }));
   const countMap = new Map(counts.map((c) => [c.userId, c.n]));
   const needle = (q ?? "").trim().toLowerCase();
-  const filtered = list
+  const students = list.filter((u) => u.role === "student");
+  const externals = list.filter((u) => u.role === "external");
+  const members = list.filter((u) => u.role === "student" || u.role === "external");
+  const filteredMembers = members
+    .filter((u) => !type || u.role === type)
     .filter((u) => !classe || u.classLevel === classe)
-    .filter((u) => !needle || [u.name, u.username, u.phone, u.email].some((v) => v?.toLowerCase().includes(needle)))
-    .sort((a, b) => (a.role === "fabmanager" ? -1 : b.role === "fabmanager" ? 1 : 0));
-  const students = list.filter((u) => u.role !== "fabmanager");
+    .filter((u) => !needle || [u.name, u.username, u.phone, u.email, u.organisation].some((v) => v?.toLowerCase().includes(needle)));
+  const managers = type ? [] : list.filter((u) => u.role === "fabmanager");
+  const filtered = [...managers, ...filteredMembers];
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHeader title="Élèves du lab" subtitle={`${students.length} élève(s) inscrit(s) · attribuez les niveaux, réinitialisez un code PIN oublié, désactivez un compte.`} />
+      <PageHeader title="Membres du lab" subtitle={`${students.length} élève(s) · ${externals.length} membre(s) externe(s). Les demandes externes sont inactives jusqu’à votre activation.`} />
       <form className="flex flex-wrap gap-2" method="get">
         <input name="q" defaultValue={q ?? ""} placeholder="Rechercher (nom, identifiant, téléphone)" className="min-w-[220px] flex-1 rounded-xl border border-border bg-card px-3 py-2 text-base" />
+        <select name="type" defaultValue={type} className="rounded-xl border border-border bg-card px-3 py-2 text-base" aria-label="Filtrer par type de membre">
+          <option value="">Élèves et externes</option>
+          <option value="student">Élèves ({students.length})</option>
+          <option value="external">Externes ({externals.length})</option>
+        </select>
         <select name="classe" defaultValue={classe ?? ""} className="rounded-xl border border-border bg-card px-3 py-2 text-base">
           <option value="">Toutes les classes</option>
           {CLASS_LEVELS.map((c) => (
@@ -70,6 +80,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     {u.name}{" "}
                     {u.role === "fabmanager" ? (
                       <Badge tone="red" className="ml-1 align-middle">Responsable</Badge>
+                    ) : u.role === "external" ? (
+                      <Badge tone="yellow" className="ml-1 align-middle">Externe</Badge>
                     ) : u.classLevel ? (
                       <Badge tone="green" className="ml-1 align-middle">{classLabel(u.classLevel, u.organisation)}</Badge>
                     ) : null}
@@ -79,14 +91,15 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     {u.phone && (
                       <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> {u.phone} <ContactButtons phone={u.phone} email={u.email} compact /></span>
                     )}
+                    {u.role === "external" && u.organisation && <span>{u.organisation}</span>}
                     <span>{countMap.get(u.id) ?? 0} réservation(s) · inscrit le {fmtDateCompact(u.createdAt)}</span>
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-1.5">
                     <LevelBadge level={u.autonomyLevel} />
-                    {!u.active && <Badge tone="red">Désactivé</Badge>}
+                    {!u.active && <Badge tone={u.role === "external" ? "yellow" : "red"}>{u.role === "external" ? "À activer / inactif" : "Désactivé"}</Badge>}
                     {u.lockedUntil && u.lockedUntil > new Date() && <Badge tone="yellow">Bloqué (trop d'essais)</Badge>}
-                    {u.role !== "fabmanager" && (
-                      <a href={`/print/apprenant/${u.id}`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-togo-green transition hover:bg-muted dark:text-lime">
+                    {u.role === "student" && (
+                      <a href={`/print/apprenant/${u.id}`} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-togo-green transition hover:bg-muted dark:text-lime">
                         <Printer className="h-3.5 w-3.5" /> Imprimer la fiche
                       </a>
                     )}
@@ -99,7 +112,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
             </li>
           );
         })}
-        {!filtered.length && <li className="rounded-2xl border border-dashed border-border p-6 text-center text-base text-muted-foreground">Aucun élève ne correspond.</li>}
+        {!filtered.length && <li className="rounded-2xl border border-dashed border-border p-6 text-center text-base text-muted-foreground">Aucun membre ne correspond aux filtres.</li>}
       </ul>
     </div>
   );

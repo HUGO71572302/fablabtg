@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { randomInt } from "crypto";
 import { and, eq, gt, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { closures, labSettings, media, notifications, reservations, resources, userSkills, users, type Level, type ResourceStatus } from "@/db/schema";
+import { closures, labSettings, media, notifications, reservations, resources, sessions, userSkills, users, type Level, type ResourceStatus } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { fmtRange, labDate } from "@/lib/dates";
 import { LEVEL_LABEL, LEVELS, RESOURCE_STATUS_LABEL } from "@/lib/labels";
 import { saveImage } from "@/lib/media";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { notify } from "@/lib/reservations";
 import type { ActionState } from "./auth";
 import type { SimpleResult } from "./reservations";
@@ -65,6 +66,8 @@ export async function saveResourceAction(_: ActionState, fd: FormData): Promise<
 
 export async function setResourceStatusAction(id: number, status: ResourceStatus): Promise<SimpleResult> {
   const admin = await requireAdmin();
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Ressource invalide." };
+  if (!(status === "disponible" || status === "maintenance" || status === "desactivee")) return { error: "Statut de ressource invalide." };
   const res = await labResourceOf(id, admin.labId);
   if (!res) return { error: "Ressource introuvable." };
   await db.update(resources).set({ status }).where(eq(resources.id, id));
@@ -87,15 +90,21 @@ export async function setResourceStatusAction(id: number, status: ResourceStatus
   return { success: `${res.name} → ${RESOURCE_STATUS_LABEL[status]}.` };
 }
 
-export async function deleteMachineAction(id: number): Promise<SimpleResult> {
+export async function deleteResourceAction(id: number, confirmationCode: string): Promise<SimpleResult> {
   const admin = await requireAdmin();
-  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Machine invalide." };
-  const machine = await labResourceOf(id, admin.labId);
-  if (!machine || machine.type !== "machine") return { error: "Machine introuvable dans votre lab." };
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Ressource invalide." };
+  const resource = await labResourceOf(id, admin.labId);
+  if (!resource) return { error: "Ressource introuvable dans votre lab." };
+  if (!admin.passwordHash) return { error: "Votre compte responsable n’a pas de mot de passe défini. Définissez-en un avant de supprimer une ressource." };
+  if (!verifyPassword(String(confirmationCode ?? ""), admin.passwordHash)) {
+    return { error: "Code incorrect. Saisissez le mot de passe actuel du responsable." };
+  }
   await db.delete(resources).where(and(eq(resources.id, id), eq(resources.labId, admin.labId)));
-  if (machine.photoId) await db.delete(media).where(and(eq(media.id, machine.photoId), eq(media.labId, admin.labId)));
+  if (resource.photoId) await db.delete(media).where(and(eq(media.id, resource.photoId), eq(media.labId, admin.labId)));
   revalidateAll();
-  return { success: `Machine « ${machine.name} » supprimée. Ses réservations et entrées de liste d'attente associées ont aussi été supprimées.` };
+  return resource.type === "machine"
+    ? { success: `Machine « ${resource.name} » supprimée avec ses réservations, listes d’attente, compétences machine et fermetures associées.` }
+    : { success: `Salle « ${resource.name} » supprimée. Les machines qui y étaient rattachées sont conservées sans salle associée; les réservations et fermetures liées à cette salle ont été supprimées.` };
 }
 
 // ---------- Paramètres & fermetures ----------
@@ -153,14 +162,32 @@ export async function toggleUserActiveAction(id: number): Promise<SimpleResult> 
   return { success: u.active ? `${u.name} désactivé(e).` : `${u.name} réactivé(e).` };
 }
 
+/** Suppression définitive d'un élève ou membre externe après confirmation du responsable. */
+export async function deleteLabMemberAction(id: number, confirmationCode: string): Promise<SimpleResult> {
+  const admin = await requireAdmin();
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: "Membre invalide." };
+  const member = await labUserOf(id, admin.labId);
+  if (!member || (member.role !== "student" && member.role !== "external")) return { error: "Membre introuvable dans votre lab." };
+  if (!admin.passwordHash) return { error: "Votre compte responsable n’a pas de mot de passe défini. Définissez-en un avant de supprimer un membre." };
+  if (!verifyPassword(String(confirmationCode ?? ""), admin.passwordHash)) {
+    return { error: "Code incorrect. Saisissez le mot de passe actuel du responsable." };
+  }
+
+  await db.delete(users).where(and(eq(users.id, id), eq(users.labId, admin.labId), eq(users.role, member.role)));
+  revalidatePath("/admin/utilisateurs");
+  revalidateAll();
+  return { success: `Le compte de ${member.name} a été supprimé. Ses réservations, notifications et niveaux machine associés ont également été supprimés.` };
+}
+
 /** Code PIN oublié : le responsable génère un nouveau code et le remet à l'élève. */
 export async function resetPinAction(id: number): Promise<SimpleResult & { pin?: string; username?: string | null }> {
   const admin = await requireAdmin();
   const u = await labUserOf(id, admin.labId);
   if (!u) return { error: "Utilisateur introuvable." };
   if (u.role === "fabmanager") return { error: "Impossible pour un compte responsable." };
-  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  const pin = String(randomInt(1000, 10000));
   await db.update(users).set({ passwordHash: hashPassword(pin), failedAttempts: 0, lockedUntil: null }).where(eq(users.id, id));
+  await db.delete(sessions).where(eq(sessions.userId, id));
   return { success: `Nouveau code PIN généré pour ${u.name}.`, pin, username: u.username };
 }
 

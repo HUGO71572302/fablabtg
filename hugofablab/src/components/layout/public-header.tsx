@@ -47,7 +47,7 @@ export function PublicHeader({ appHref, nav = SITE.nav as unknown as { href: str
           <div className="flex items-center gap-3">
             <div className="hidden sm:block"><ThemeToggle /></div>
             <Link href={appHref ?? "/login"} className="hidden text-[15px] font-semibold transition hover:text-togo-green dark:hover:text-lime sm:block">{appHref ? "Mon espace" : "Connexion"}</Link>
-            <Link href={appHref ?? joinHref} className={buttonClass("primary", "md", "hidden lg:inline-flex text-[15px]")}>
+            <Link href={appHref ?? joinHref} className={buttonClass("primary", "md", "hidden md:inline-flex text-[15px]")}>
               {appHref ? "Ouvrir mon lab" : joinLabel}<ArrowUpRight className="h-4 w-4" />
             </Link>
             <Link href={appHref ?? "/login"} className="icon-button sm:hidden" aria-label={appHref ? "Mon espace" : "Connexion"}><LogIn className="h-4 w-4" /></Link>
@@ -57,7 +57,7 @@ export function PublicHeader({ appHref, nav = SITE.nav as unknown as { href: str
       </header>
       {open && (
         <div className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)}>
-          <div ref={panelRef} id="public-mobile-menu" role="dialog" aria-modal="true" aria-label="Menu de navigation" className="dialog-in absolute inset-y-0 right-0 flex w-full max-w-sm flex-col bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div ref={panelRef} id="public-mobile-menu" role="dialog" aria-modal="true" aria-label="Menu de navigation" className="dialog-in absolute inset-y-0 right-0 flex w-full max-w-sm flex-col overflow-y-auto overscroll-contain bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><Logo /><button ref={closeRef} type="button" className="icon-button" onClick={() => { setOpen(false); menuRef.current?.focus(); }} aria-label="Fermer le menu"><X className="h-5 w-5" /></button></div>
             <p className="eyebrow mt-12 text-muted-foreground">Explorer</p>
             <nav className="mt-4 divide-y divide-border" aria-label="Menu mobile">

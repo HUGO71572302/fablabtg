@@ -113,7 +113,7 @@ export async function learnersWithStats(labId: number): Promise<LearnerRow[]> {
     })
     .from(users)
     .leftJoin(grades, eq(grades.userId, users.id))
-    .where(eq(users.labId, labId))
+    .where(and(eq(users.labId, labId), eq(users.role, "student")))
     .groupBy(users.id)
     .orderBy(users.classLevel, users.organisation, users.sheetNumber, users.name);
   return rows.map((r) => ({
@@ -136,7 +136,7 @@ export async function classRank(user: { id: number; labId: number | null; classL
   const roster = await db
     .select({ id: users.id, classLevel: users.classLevel, organisation: users.organisation, sheetNumber: users.sheetNumber, createdAt: users.createdAt })
     .from(users)
-    .where(eq(users.labId, user.labId))
+    .where(and(eq(users.labId, user.labId), eq(users.role, "student")))
     .orderBy(users.createdAt);
   const classmates = roster
     .filter((r) => classCode(r.classLevel, r.organisation) === code)

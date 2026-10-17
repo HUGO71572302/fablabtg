@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Download, Printer } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { planIncludes } from "@/lib/billing";
 import { fmtDateCompact, fmtTime } from "@/lib/dates";
 import { Badge, Button, Card, CardContent, CardHeader, EmptyState, Input, Label, PageHeader, Select, Stat, buttonClass, cn } from "@/components/ui";
 import { journalFilter, journalSummary, listJournal, listStock, MOVEMENT_LABEL, MOVEMENT_TYPES, movementRef, STOCK_CATEGORY_LABEL, type MovementType } from "@/lib/stock";
@@ -19,6 +21,7 @@ const TYPE_TONE: Record<MovementType, "green" | "blue" | "red" | "yellow"> = { e
 
 export default async function StockJournalPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const admin = await requireAdmin();
+  if (!(await planIncludes(admin.labId, "plus"))) redirect("/abonnement?reason=plan-plus");
   const sp = await searchParams;
   const f = journalFilter(admin.labId, sp);
   const [rows, summary, items] = await Promise.all([listJournal({ ...f, limit: 500 }), journalSummary(f), listStock(admin.labId, true)]);
@@ -37,7 +40,7 @@ export default async function StockJournalPage({ searchParams }: { searchParams:
         subtitle="Chaque mouvement du stock, filtrable par période, type et article. Imprimez le journal, une fiche article ou un reçu."
         action={
           <div className="flex flex-wrap gap-2">
-            <a href={`/print/stock/journal?${qs}`} target="_blank" rel="noreferrer" className={buttonClass("primary", "md")}>
+            <a href={`/print/stock/journal?${qs}`} className={buttonClass("primary", "md")}>
               <Printer className="h-4 w-4" /> Imprimer le journal
             </a>
             <a href={`/api/stock/journal?${qs}`} className={buttonClass("outline", "md")}>
@@ -182,9 +185,9 @@ export default async function StockJournalPage({ searchParams }: { searchParams:
                       <td className="py-3 pr-3">{r.beneficiary ?? <span className="text-muted-foreground">—</span>}</td>
                       <td className="py-3 pr-3">{r.userName ?? "Système"}</td>
                       <td className="whitespace-nowrap py-3 text-right font-bold">
-                        <a href={`/print/stock/recu/${r.id}`} target="_blank" rel="noreferrer" className="text-togo-green underline-offset-4 hover:underline dark:text-lime">Reçu</a>
+                        <a href={`/print/stock/recu/${r.id}`} className="text-togo-green underline-offset-4 hover:underline dark:text-lime">Reçu</a>
                         <span className="mx-2 text-muted-foreground">·</span>
-                        <a href={`/print/stock/fiche/${r.itemId}`} target="_blank" rel="noreferrer" className="text-togo-green underline-offset-4 hover:underline dark:text-lime">Fiche</a>
+                        <a href={`/print/stock/fiche/${r.itemId}`} className="text-togo-green underline-offset-4 hover:underline dark:text-lime">Fiche</a>
                       </td>
                     </tr>
                   );

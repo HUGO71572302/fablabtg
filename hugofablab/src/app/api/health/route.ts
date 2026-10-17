@@ -9,7 +9,8 @@ export const runtime = "nodejs";
  * Diagnostic détaillé uniquement avec DEPLOYMENT_DIAGNOSTIC_TOKEN, afin de ne jamais exposer une erreur PostgreSQL au public.
  */
 export async function GET(req: Request) {
-  const token = req.headers.get("x-deployment-token") ?? new URL(req.url).searchParams.get("token");
+  // Ne jamais accepter le jeton par URL : les query strings sont souvent copiées dans les journaux et référents.
+  const token = req.headers.get("x-deployment-token");
   const detailed = Boolean(process.env.DEPLOYMENT_DIAGNOSTIC_TOKEN && token === process.env.DEPLOYMENT_DIAGNOSTIC_TOKEN);
   try {
     if (!databaseConfigured) throw new Error("DATABASE_URL is missing");

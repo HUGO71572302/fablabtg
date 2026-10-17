@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, count, desc, eq, gt } from "drizzle-orm";
-import { Activity, ArrowUpRight, CalendarDays, ChevronRight, Hourglass, Images, Plus, Wrench } from "lucide-react";
+import { Activity, ArrowUpRight, CalendarDays, ChevronRight, Hourglass, Images, MessageSquareQuote, Plus, Star, Wrench } from "lucide-react";
 import { db } from "@/db";
 import { closures, notifications, resources, users } from "@/db/schema";
 import { AdminReservationItem } from "@/components/admin/reservation-item";
@@ -50,7 +50,7 @@ export default async function AdminDashboard() {
         <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full border border-lime/15" />
         <div className="relative flex flex-wrap items-center justify-between gap-6">
           <div><p className="text-[13px] font-semibold uppercase tracking-[0.17em] text-lime/80">L’atelier des possibles</p><h2 className="mt-3 text-[24px] font-extrabold tracking-tight sm:text-[29px]">Faites grandir les idées.</h2><p className="mt-2 max-w-sm text-sm leading-6 text-white/70">Vos machines, leurs projets. Tout ce qu’il faut pour faire vivre votre FabLab, au même endroit.</p></div>
-          <div className="flex flex-wrap gap-3"><Link href="/admin/ressources" className={buttonClass("warning", "md", "text-sm")}><Plus className="h-4 w-4" />Mes machines<ArrowUpRight className="h-3.5 w-3.5" /></Link><Link href="/admin/projets" className={buttonClass("outline", "md", "border-white/20 text-white hover:bg-white/10 text-sm")}><Images className="h-4 w-4" />Les projets</Link></div>
+          <div className="flex flex-wrap gap-3"><Link href="/admin/ressources" className={buttonClass("warning", "md", "text-sm")}><Plus className="h-4 w-4" />Mes machines<ArrowUpRight className="h-3.5 w-3.5" /></Link><Link href="/admin/projets" className={buttonClass("outline", "md", "border-white/20 text-white hover:bg-white/10 text-sm")}><Images className="h-4 w-4" />Les projets</Link><Link href="/admin/avis" className={buttonClass("outline", "md", "border-lime/30 bg-lime/10 text-lime hover:bg-lime/20 text-sm")}><MessageSquareQuote className="h-4 w-4" />Avis des membres<Star className="h-3.5 w-3.5 fill-current" /></Link></div>
         </div>
       </section>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

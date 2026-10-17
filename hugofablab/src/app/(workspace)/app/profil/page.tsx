@@ -28,8 +28,9 @@ export default async function ProfilePage() {
     db.select().from(userSkills).where(eq(userSkills.userId, user.id)),
   ]);
   const manager = user.role === "fabmanager" ? null : (await selectManager(user.labId))[0] ?? null;
-  const sheetNumber = user.role === "fabmanager" ? null : await assignSheetNumber(user);
-  const [rank, stats, gradeRows] = user.role === "fabmanager"
+  const isStudent = user.role === "student";
+  const sheetNumber = isStudent ? await assignSheetNumber(user) : null;
+  const [rank, stats, gradeRows] = !isStudent
     ? [null, null, [] as Awaited<ReturnType<typeof listGrades>>]
     : await Promise.all([classRank(user), gradesStats(user.id), listGrades(user.id)]);
   const machines = resources.filter((r) => r.type === "machine" && r.status !== "desactivee");
@@ -43,11 +44,11 @@ export default async function ProfilePage() {
       <PageHeader
         title="Mon profil"
         subtitle="Vos informations et vos niveaux d'autonomie par machine."
-        action={
-          <a href={`/print/apprenant/${user.id}`} target="_blank" rel="noreferrer" className={buttonClass("outline", "md")}>
+        action={isStudent ? (
+          <a href={`/print/apprenant/${user.id}`} className={buttonClass("outline", "md")}>
             <Printer className="h-4 w-4" /> Imprimer mon historique
           </a>
-        }
+        ) : null}
       />
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
@@ -115,7 +116,7 @@ export default async function ProfilePage() {
         </Card>
       </div>
 
-      {gradeRows.length > 0 && stats && (
+      {isStudent && gradeRows.length > 0 && stats && (
         <Card>
           <CardHeader
             eyebrow={rank ? `Fiche ${sheetNumber} · classe ${rank.code} · n° ${rank.rank} sur ${rank.total}` : "Suivi"}

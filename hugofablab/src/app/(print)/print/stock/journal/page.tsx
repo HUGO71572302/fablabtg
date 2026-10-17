@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PrintBar } from "@/components/print/print-bar";
 import { PrintHeader, PrintSection, PrintSignatures } from "@/components/print/print-parts";
 import { requireAdmin } from "@/lib/auth";
+import { planIncludes } from "@/lib/billing";
 import { fmtDate, fmtDateCompact, fmtTime } from "@/lib/dates";
 import { getLab } from "@/lib/labs";
 import { journalFilter, journalSummary, listJournal, MOVEMENT_LABEL, movementRef, STOCK_CATEGORY_LABEL } from "@/lib/stock";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PrintJournal({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const admin = await requireAdmin();
+  if (!(await planIncludes(admin.labId, "plus"))) redirect("/abonnement?reason=plan-plus");
   const sp = await searchParams;
   const f = journalFilter(admin.labId, sp);
   const [lab, rows, summary] = await Promise.all([getLab(admin.labId), listJournal({ ...f, limit: 2000 }), journalSummary(f)]);

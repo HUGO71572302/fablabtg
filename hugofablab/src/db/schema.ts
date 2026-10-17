@@ -305,6 +305,26 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Avis transmis par les membres ; publication et mise en avant contrôlées par le responsable du lab. */
+export const userReviews = pgTable(
+  "user_reviews",
+  {
+    id: serial("id").primaryKey(),
+    labId: integer("lab_id").notNull().references(() => labs.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(),
+    message: text("message").notNull(),
+    published: boolean("published").notNull().default(false),
+    featured: boolean("featured").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_reviews_user_unique").on(t.userId),
+    index("user_reviews_lab_published_idx").on(t.labId, t.published, t.featured, t.createdAt),
+  ],
+);
+
 // ---------- Stock & matériel ----------
 export const stockCategoryEnum = pgEnum("stock_category", ["consommable", "matiere", "piece", "outillage", "securite", "divers"]);
 
@@ -374,6 +394,7 @@ export type ReservationStatus = (typeof reservationStatusEnum.enumValues)[number
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 export type Lab = typeof labs.$inferSelect;
 export type Project = typeof projects.$inferSelect;
+export type UserReview = typeof userReviews.$inferSelect;
 export type Grade = typeof grades.$inferSelect;
 export type LabSubscription = typeof labSubscriptions.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
